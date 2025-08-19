@@ -1,8 +1,42 @@
-<h2>Create a New Project</h2>
-<form method="POST">
-  <label>Title:</label><br>
-  <input type="text" name="title" required><br><br>
-  <label>Description:</label><br>
-  <textarea name="description"></textarea><br><br>
-  <button type="submit">Create Project</button>
-</form>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Create New Project - Living Repository</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+  <!-- Navigation -->
+  <nav class="nav" style="display:flex; justify-content:space-between; align-items:center; padding:var(--space-4) var(--space-6); border-bottom:1px solid var(--border-color);">
+    <div class="logo h3">Living Repository</div>
+    <div>
+      <a href="{{ url_for('dashboard') }}" class="btn btn-link">Dashboard</a>
+      <a href="{{ url_for('logout') }}" class="btn btn-link">Logout</a>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="section" style="max-width:720px; margin:auto; padding:var(--space-10) var(--space-6);">
+    <h1 class="h2" style="margin-bottom:var(--space-6); text-align:center;">Create New Project</h1>
+
+    <form method="post" class="doc-card" style="padding:var(--space-8); display:flex; flex-direction:column; gap:var(--space-4);">
+      <label for="title" class="muted">Project Title</label>
+      <input type="text" id="title" name="title" placeholder="Enter project title" required class="input">
+
+      <label for="description" class="muted">Description</label>
+      <textarea id="description" name="description" placeholder="Write a short description" rows="5" class="input"></textarea>
+
+      <div style="display:flex; justify-content:flex-end; gap:var(--space-4); margin-top:var(--space-6);">
+        <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">Cancel</a>
+        <button type="submit" class="btn btn-primary">Create Project</button>
+      </div>
+    </form>
+  </main>
+
+  <!-- Footer -->
+  <footer class="section" style="text-align:center; padding:var(--space-8); border-top:1px solid var(--border-color); margin-top:var(--space-16);">
+    <p class="muted text-sm">&copy; {{ current_year }} Living Repository. All rights reserved.</p>
+  </footer>
+</body>
+</html>
