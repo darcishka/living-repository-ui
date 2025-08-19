@@ -11,7 +11,6 @@ import fitz
 from docx import Document as DocxDocument
 
 
-# iluka test if can commit
 
 app = Flask(__name__)
 UPLOAD_FOLDER = "uploads"
