@@ -58,14 +58,14 @@
 
         <!-- Document List -->
         {% for doc in documents %}
-        <article class="doc-card">
+        <article class="doc-card" data-doc-id="{{ doc.doc_id }}">
           <div class="doc-row">
             <div class="doc-title">{{ doc.title }}</div>
             <span class="badge
               {% if doc.status == 'Complete' %}badge-success
               {% elif doc.status in ['In Progress','in_progress','in progress'] %}badge-warning
               {% elif doc.status in ['Failed','Error'] %}badge-danger
-              {% else %}badge-secondary{% endif %}">
+              {% else %}badge-secondary{% endif %} status-badge">
               {{ doc.status or "Pending" }}
             </span>
           </div>
@@ -82,8 +82,15 @@
             {% endfor %}
           </div>
           {% endif %}
+
+          <!-- Process Button -->
+          {% if doc.status != 'Complete' %}
+          <button class="btn btn-sm btn-primary process-btn" data-doc-id="{{ doc.doc_id }}">
+            Process
+          </button>
+          {% endif %}
         </article>
-      {% endfor %}
+        {% endfor %}
 
       <!-- UPLOAD -->
       <section class="screen" data-screen="upload">
@@ -172,6 +179,27 @@
 
   <!-- JS -->
   <script>
+    document.querySelectorAll('.process-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+    const docId = btn.dataset.docId;
+    fetch(`/project/${PROJECT_ID}/document/${docId}/process`, {
+        method: 'POST'
+        })
+        .then(res => res.json())
+        .then(data => {
+          if(data.success){
+            const card = btn.closest('.doc-card');
+            const badge = card.querySelector('.status-badge');
+            badge.textContent = 'Complete';
+            badge.className = 'badge badge-success status-badge';
+            btn.remove(); // remove the process button
+          } else {
+            alert('Failed to process document.');
+          }
+        })
+        .catch(err => console.error(err));
+      });
+    });
     document.getElementById('year').textContent = new Date().getFullYear();
     const screens = document.querySelectorAll('.screen');
     const steps = document.querySelectorAll('.ingest-step');

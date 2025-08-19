@@ -10,7 +10,7 @@ from PIL import Image
 import fitz
 from docx import Document as DocxDocument
 import google.generativeai as genai
-
+import re
 
 
 app = Flask(__name__)
@@ -18,11 +18,11 @@ UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.secret_key = "super-secret-key"  # change this in production!
 genai.configure(api_key="AIzaSyAYH1bmWz4hI1s2rgFXvAR5ygtOmoXf4Cs")
+model = genai.GenerativeModel("Gemini 2.5-Flash-Lite")
 
 def generate_tags(text):
     """Use Gemini to generate tags from document text."""
     try:
-        model = genai.GenerativeModel("gemini-1.5-flash")
         prompt = f"Extract 5-10 concise topic tags for the following document, respond with the tags only, seperated by commas:\n\n{text[:3000]}"
         response = model.generate_content(prompt)
         tags = response.text.strip().split(",")
@@ -371,6 +371,8 @@ def project_upload(project_id):
         doc_type = "other"
         ocr_text = ""
 
+    # Clean up OCR text    
+    ocr_text = re.sub(r"\n{2,}", "\n", ocr_text).strip()
     # Generate tags with Gemini
     tags = generate_tags(ocr_text or description or title)
 
@@ -500,6 +502,70 @@ def ingestion(project_id):
         documents=documents
     )
 
+@app.route("/project/<project_id>/document/<doc_id>/process", methods=["POST"])
+def process_document(project_id, doc_id):
+    if "user_id" not in session:
+        return jsonify({"success": False, "error": "Unauthorized"}), 401
+
+    conn = get_db()
+    cur = conn.cursor(MySQLdb.cursors.DictCursor)
+
+    try:
+        # --- get document text ---
+        cur.execute("SELECT ocr_text FROM Document WHERE doc_id=%s", (doc_id,))
+        doc = cur.fetchone()
+        if not doc or not doc["ocr_text"]:
+            return jsonify({"success": False, "error": "Document has no text"}), 400
+
+        # --- get project context ---
+        cur.execute("SELECT title, description FROM Project WHERE project_id=%s", (project_id,))
+        project = cur.fetchone()
+        if not project:
+            return jsonify({"success": False, "error": "Project not found"}), 404
+
+        # --- generate contextual summary with Gemini ---
+        model = genai.GenerativeModel("gemini-2.5-flash-lite")
+        prompt = f"""
+        Project: {project['title']}
+        Project Description: {project['description']}
+
+        Document Text:
+        {doc['ocr_text'][:6000]}
+
+        Task: Write a concise summary (3–5 sentences) of this document,
+        emphasizing only the parts relevant to the project’s goals and context, prioritize relevant statistics above all.
+        """
+        response = model.generate_content(prompt)
+        summary = response.text.strip() if response and response.text else None
+
+        if not summary:
+            return jsonify({"success": False, "error": "AI did not return summary"}), 500
+
+        # --- update Project_Document contextual_summary ---
+        cur.execute("""
+            UPDATE Project_Document
+            SET contextual_summary=%s
+            WHERE project_id=%s AND document_id=%s
+        """, (summary, project_id, doc_id))
+
+        # --- update Document status ---
+        cur.execute("""
+            UPDATE Document
+            SET status=%s
+            WHERE doc_id=%s
+        """, ("Complete", doc_id))
+
+        conn.commit()
+
+        return jsonify({"success": True, "summary": summary})
+
+    except Exception as e:
+        conn.rollback()
+        print("Error processing doc:", e)
+        return jsonify({"success": False, "error": str(e)}), 500
+    finally:
+        cur.close()
+        conn.close()
 
 
 if __name__ == "__main__":
