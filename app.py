@@ -12,6 +12,7 @@ from docx import Document as DocxDocument
 import google.generativeai as genai
 
 
+
 app = Flask(__name__)
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
