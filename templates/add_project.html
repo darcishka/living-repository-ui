@@ -1,0 +1,7 @@
+<h1>Create New Project</h1>
+<form method="post">
+  <input type="text" name="title" placeholder="Project title" required><br>
+  <textarea name="description" placeholder="Project description"></textarea><br>
+  <button type="submit">Create Project</button>
+</form>
+<a href="{{ url_for('projects') }}"><button>Go Back</button></a>

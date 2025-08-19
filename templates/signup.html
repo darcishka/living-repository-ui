@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Sign Up - Living Repository</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- If Flask -->
+  <!-- <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}"> -->
+  <!-- If plain HTML -->
+  <link rel="stylesheet" href="static/styles.css">
+</head>
+<body>
+  <div class="container section" style="max-width:480px;">
+    <div class="doc-card">
+      <h2 class="h2" style="text-align:center; margin-bottom:var(--space-6);">
+        Create Your Account
+      </h2>
+
+      <form action="/signup" method="POST" style="display:flex; flex-direction:column; gap:var(--space-4);">
+        <div>
+          <label for="username" class="text-sm muted">Username</label>
+          <input type="text" id="username" name="username" class="input" required>
+        </div>
+
+        <div>
+          <label for="email" class="text-sm muted">Email</label>
+          <input type="email" id="email" name="email" class="input" required>
+        </div>
+
+        <div>
+          <label for="password" class="text-sm muted">Password</label>
+          <input type="password" id="password" name="password" class="input" required>
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-block">Sign Up</button>
+      </form>
+
+      <div class="text-sm muted" style="text-align:center; margin-top:var(--space-4);">
+        Already have an account?
+        <a href="login" class="btn-link">Log in</a>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

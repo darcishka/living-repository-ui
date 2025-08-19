@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Dashboard - Living Repository</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+  <!-- Top Navigation -->
+  <nav class="nav" style="display:flex; justify-content:space-between; align-items:center; padding:var(--space-4) var(--space-6); border-bottom:1px solid var(--border-color);">
+    <div class="logo h3">Living Repository</div>
+    <div>
+      <a href="{{ url_for('logout') }}" class="btn btn-link">Logout</a>
+    </div>
+  </nav>
+
+  <!-- Welcome Banner -->
+  <header class="section" style="text-align:center; padding:var(--space-12) var(--space-6); background:var(--surface-1); border-bottom:1px solid var(--border-color);">
+    <h1 class="h1">Welcome back, {{ name }}!</h1>
+    <p class="lead muted" style="margin-top:var(--space-2);">Here’s your personal hub for managing projects and documents.</p>
+  </header>
+
+  <!-- Quick Actions -->
+  <section class="section" style="max-width:1080px; margin:auto; padding:var(--space-12) var(--space-6);">
+    <h2 class="h2" style="margin-bottom:var(--space-8);">Quick Actions</h2>
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(250px, 1fr)); gap:var(--space-6);">
+      
+      <a href="{{ url_for('projects') }}" class="doc-card" style="display:block; text-align:center; padding:var(--space-8); transition:all 0.2s;">
+        <h3 class="h3">📁 View My Projects</h3>
+        <p class="muted">Browse and manage your existing projects and their documents.</p>
+      </a>
+
+      <a href="{{ url_for('create_project') }}" class="doc-card" style="display:block; text-align:center; padding:var(--space-8); transition:all 0.2s;">
+        <h3 class="h3">➕ Create New Project</h3>
+        <p class="muted">Start a new project and begin adding documents right away.</p>
+      </a>
+
+      <a href="{{ url_for('logout') }}" class="doc-card" style="display:block; text-align:center; padding:var(--space-8); transition:all 0.2s;">
+        <h3 class="h3">🚪 Logout</h3>
+        <p class="muted">Sign out of your account securely.</p>
+      </a>
+    </div>
+  </section>
+
+  <!-- Recent Activity (Optional) -->
+  <section class="section" style="max-width:1080px; margin:auto; padding:var(--space-12) var(--space-6);">
+    <h2 class="h2" style="margin-bottom:var(--space-6);">Recent Activity</h2>
+    <ul class="doc-list">
+      <li class="doc-item">
+        <div class="doc-content">
+          <h3 class="h4">Policy Draft v2 uploaded</h3>
+          <p class="muted text-sm">2 days ago · Project: Education Reform</p>
+        </div>
+      </li>
+      <li class="doc-item">
+        <div class="doc-content">
+          <h3 class="h4">New project “Climate Action Plan” created</h3>
+          <p class="muted text-sm">1 week ago</p>
+        </div>
+      </li>
+    </ul>
+  </section>
+
+  <!-- Footer -->
+  <footer class="section" style="text-align:center; padding:var(--space-6); border-top:1px solid var(--border-color);">
+    <p class="muted text-sm">&copy; {{ current_year }} Living Repository</p>
+  </footer>
+</body>
+</html>

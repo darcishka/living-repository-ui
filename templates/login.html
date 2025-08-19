@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Login - Living Repository</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="static/styles.css">
+</head>
+<body>
+  <div class="container section" style="max-width:480px;">
+    <div class="doc-card">
+      <h2 class="h2" style="text-align:center; margin-bottom:var(--space-6);">
+        Login to Living Repository
+      </h2>
+
+      <form action="/login" method="POST" style="display:flex; flex-direction:column; gap:var(--space-4);">
+        <div>
+          <label for="email" class="text-sm muted">Email</label>
+          <input type="email" id="email" name="email" class="input" required>
+        </div>
+
+        <div>
+          <label for="password" class="text-sm muted">Password</label>
+          <input type="password" id="password" name="password" class="input" required>
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-block">Log In</button>
+      </form>
+
+      <div class="text-sm muted" style="text-align:center; margin-top:var(--space-4);">
+        Don’t have an account? 
+        <a href="signup" class="btn-link">Sign up</a>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

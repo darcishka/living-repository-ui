@@ -1,0 +1,23 @@
+<h1>{{ document.title }}</h1>
+
+<p><b>Uploaded by:</b> {{ document.uploader_name }}</p>
+<p><b>Project:</b> {{ document.project_title }}</p>
+<p><b>Uploaded on:</b> {{ document.upload_date }}</p>
+<p><b>Type:</b> {{ document.type }}</p>
+<p><b>Privacy:</b> {{ document.privacy_level }}</p>
+
+{% if document.ocr_text %}
+<p><b>Extracted Text:</b></p>
+<pre>{{ document.ocr_text }}</pre>
+{% endif %}
+
+<!-- Buttons -->
+<form method="post" style="display:inline;">
+  <button type="submit" name="delete" onclick="return confirm('Are you sure you want to delete this document?');">
+    Delete Document
+  </button>
+</form>
+
+<a href="{{ url_for('project_detail', project_id=document.project_id) }}">
+  <button type="button">Return to Project</button>
+</a>

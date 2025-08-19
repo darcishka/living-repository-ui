@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Living Repository</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+  <!-- Navigation -->
+  <nav class="nav" style="display:flex; justify-content:space-between; align-items:center; padding:var(--space-4) var(--space-6); border-bottom:1px solid var(--border-color);">
+    <div class="logo h3">Living Repository</div>
+    <div>
+      <a href="{{ url_for('login') }}" class="btn btn-link">Log in</a>
+      <a href="{{ url_for('signup') }}" class="btn btn-link">Sign Up</a>
+    </div>
+  </nav>
+
+  <!-- Hero Section -->
+  <section class="section" style="text-align:center; padding:var(--space-16) var(--space-6);">
+    <h1 class="h1">A Dynamic System for Managing Knowledge</h1>
+    <p class="lead" style="margin-top:var(--space-4); max-width:720px; margin-left:auto; margin-right:auto;">
+      Living Repository is a dynamic system for managing knowledge and artifacts 
+      across the entire policy project lifecycle — from creation to collaboration 
+      to long-term preservation.
+    </p>
+    <div style="margin-top:var(--space-8);">
+      <a href="{{ url_for('signup') }}" class="btn btn-primary btn-lg">Get Started</a>
+      <a href="{{ url_for('login') }}" class="btn btn-secondary btn-lg">Log in</a>
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section class="section" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px,1fr)); gap:var(--space-6); max-width:1080px; margin:auto;">
+    <div class="doc-card">
+      <h3 class="h3">Organize Projects</h3>
+      <p class="muted">Easily create and manage projects, keeping all related documents and resources in one place.</p>
+    </div>
+    <div class="doc-card">
+      <h3 class="h3">Collaborate Efficiently</h3>
+      <p class="muted">Work together with your team, track versions, and ensure everyone stays aligned.</p>
+    </div>
+    <div class="doc-card">
+      <h3 class="h3">Preserve Knowledge</h3>
+      <p class="muted">Maintain a long-term repository of policies, decisions, and artifacts for future reference.</p>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="section" style="text-align:center; padding:var(--space-8); border-top:1px solid var(--border-color); margin-top:var(--space-16);">
+    <p class="muted text-sm">&copy; {{ current_year }} Living Repository. All rights reserved.</p>
+  </footer>
+</body>
+</html>

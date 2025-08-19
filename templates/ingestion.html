@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PO3 Legends — Ingestion</title>
+
+  <!-- Figma font setup -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+
+  <!-- Project styles -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+
+  <!-- Header / Nav -->
+  <header class="container header">
+    <a class="brand" href="#">PO3 Legends</a>
+    <nav class="nav">
+      <a href="#">Home</a>
+      <a href="#">About</a>
+      <a href="#">Contact</a>
+    </nav>
+  </header>
+
+  <main class="container">
+
+    <!-- ===== Ingestion Flow (Dashboard → Upload → Tags → Metadata) ===== -->
+    <section id="ingestion-app" class="section">
+
+      <!-- Step header -->
+      <div class="ingest-steps">
+        <div class="ingest-step" data-step="dashboard" aria-current="page">Dashboard</div>
+        <div class="ingest-step" data-step="upload">Upload</div>
+        <div class="ingest-step" data-step="tags">AI Tag Suggestions</div>
+        <div class="ingest-step" data-step="metadata">Metadata</div>
+      </div>
+
+      <!-- Screens -->
+      <div class="ingest-screens">
+
+        <!-- DASHBOARD (uses real project + docs) -->
+        <section class="screen active" data-screen="dashboard" aria-label="Dashboard">
+          <div class="ingest-header" style="display:block;">
+            <!-- Title -->
+            <h2 class="h2">{{ project.title }} - Documents</h2>
+
+            <!-- Back Button under title -->
+            <div style="margin:8px 0 24px 0;">
+              <a href="{{ url_for('project_detail', project_id=project_id) }}">
+                <button class="btn btn-outline">← Back to Project</button>
+              </a>
+            </div>
+
+            <!-- Search centered -->
+            <div style="display:flex; justify-content:center; margin-bottom:24px;">
+              <div class="ingest-search" style="width:100%; max-width:500px;">
+                <input id="docSearch" class="input" placeholder="Search documents with AI…" />
+                <button id="docSearchBtn" class="btn btn-outline">Search</button>
+              </div>
+            </div>
+
+            <!-- Upload button centered -->
+            <div style="display:flex; justify-content:center;">
+              <button class="btn btn-primary btn-lg" id="btnGoUpload">+ Upload New Document</button>
+            </div>
+          </div>
+
+          <!-- Documents list (server data) -->
+          <div class="card-list" id="docList">
+            {% for doc in documents %}
+            <article class="doc-card" data-title="{{ doc.title }}" data-author="{{ doc.author }}">
+              <div class="doc-row">
+                <div class="doc-title">{{ doc.title }}</div>
+                <span class="badge
+                  {% if doc.status == 'Complete' %}badge-success
+                  {% elif doc.status in ['In Progress','in_progress','in progress'] %}badge-warning
+                  {% elif doc.status in ['Failed','Error'] %}badge-danger
+                  {% else %}badge-secondary{% endif %}">
+                  {{ doc.status or "Pending" }}
+                </span>
+              </div>
+              <div class="doc-meta">
+                <span>Author: {{ doc.author or "Unknown" }}</span>
+                <span>Updated: {{ doc.upload_date }}</span>
+              </div>
+              {% if doc.description %}<p class="text-sm muted" style="margin-top:6px;">{{ doc.description }}</p>{% endif %}
+            </article>
+            {% else %}
+            <p>No documents uploaded yet.</p>
+            {% endfor %}
+          </div>
+        </section>
+
+        <!-- UPLOAD (drag & drop) -->
+        <section class="screen" data-screen="upload" aria-label="Upload Document">
+          <h2 class="h2">Upload Document</h2>
+
+          <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Upload area">
+            <input id="fileInput" type="file" hidden />
+            <div class="dropzone-inner">
+              <div class="drop-illustration">⬆</div>
+              <div class="drop-title">Drag & drop file here</div>
+              <div class="drop-sub">or <button id="browseBtn" class="btn btn-link" type="button">browse</button></div>
+              <div class="drop-hint">PDF or DOCX only. Max 25MB.</div>
+              <div id="filePicked" class="drop-picked" hidden></div>
+            </div>
+          </div>
+
+          <div class="grid-2" style="margin-top: var(--space-8);">
+            <div>
+              <label class="label" for="docTitle">Title</label>
+              <input id="docTitle" class="input" placeholder="e.g., Quarterly Budget 2025" />
+            </div>
+            <div>
+              <label class="label" for="docAuthor">Author</label>
+              <input id="docAuthor" class="input" placeholder="e.g., Finance Team" />
+            </div>
+            <div>
+              <label class="label" for="docDate">Date</label>
+              <input id="docDate" class="input" type="date" />
+            </div>
+          </div>
+
+          <div class="ingest-actions">
+            <button class="btn btn-outline" id="backToDashboard">Back to Dashboard</button>
+            <button id="toTags" class="btn btn-primary">Continue</button>
+          </div>
+        </section>
+
+        <!-- AI TAG SUGGESTIONS -->
+        <section class="screen" data-screen="tags" aria-label="AI Tag Suggestions">
+          <div class="ingest-header">
+            <h2 class="h2">AI Tag Suggestions</h2>
+            <button id="acceptAllTags" class="btn btn-primary btn-lg">Accept All</button>
+          </div>
+
+          <div class="chip-board" id="suggestedTags"><!-- chips via JS --></div>
+
+          <div class="chip-add" style="display:flex; gap:8px; margin-top:12px;">
+            <input id="manualTag" class="input" placeholder="Add manual tag (e.g., #Compliance)" />
+            <button id="addTagBtn" class="btn btn-outline">Add Tag</button>
+          </div>
+
+          <div class="ingest-actions">
+            <button class="btn btn-outline" id="backToUpload">Back</button>
+            <button class="btn btn-primary" id="toMetadata">Continue</button>
+          </div>
+        </section>
+
+        <!-- FINAL METADATA -->
+        <section class="screen" data-screen="metadata" aria-label="Finalize Metadata">
+          <h2 class="h2">Finalize Metadata</h2>
+
+          <div class="card" style="padding: var(--space-6); border:1px solid var(--border); border-radius:16px; background:#fff; box-shadow:var(--shadow);">
+            <!-- Tags -->
+            <div class="group-block">
+              <div class="group-title">Tags</div>
+              <div class="chip-board" id="finalTags"></div>
+            </div>
+
+            <!-- Classification -->
+            <div class="group-block">
+              <div class="group-title">Classification</div>
+              <select id="classification" class="select">
+                <option value="public">Public</option>
+                <option value="internal" selected>Internal</option>
+                <option value="confidential">Confidential</option>
+              </select>
+            </div>
+
+            <!-- Reviewer -->
+            <div class="group-block">
+              <div class="group-title">Reviewer</div>
+              <input id="reviewer" class="input" list="reviewerList" placeholder="Start typing…" />
+              <datalist id="reviewerList">
+                <option value="Alex Johnson"></option>
+                <option value="Priya Singh"></option>
+                <option value="Taylor Wong"></option>
+                <option value="Morgan Lee"></option>
+              </datalist>
+            </div>
+
+            <div class="ingest-actions">
+              <button class="btn btn-outline" id="backToTags">Back</button>
+              <button class="btn btn-primary" id="submitRepo">Submit to Repository</button>
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="container footer">
+    <small>© <span id="year"></span> PO3 Legends</small>
+  </footer>
+
+  <!-- Your ingestion flow JS (router, upload, tags, metadata).
+       Keep your existing logic; just make sure the selectors/IDs above match. -->
+  <script src="{{ url_for('static', filename='script.js') }}"></script>
+
+  <script>
+    // Footer year
+    document.getElementById('year').textContent = new Date().getFullYear();
+  </script>
+</body>
+</html>
+
+<script>
+  const screens = document.querySelectorAll('.screen');
+  const steps = document.querySelectorAll('.ingest-step');
+
+  function goToScreen(screenName) {
+    // Switch active screen
+    screens.forEach(s => {
+      s.classList.toggle('active', s.dataset.screen === screenName);
+    });
+
+    // Update step headers
+    steps.forEach(step => {
+      const isCurrent = step.dataset.step === screenName;
+      step.classList.toggle('active', isCurrent);
+      if (isCurrent) {
+        step.setAttribute('aria-current', 'page');
+      } else {
+        step.removeAttribute('aria-current');
+      }
+    });
+  }
+
+  // Dashboard "Upload" button
+  const btnGoUpload = document.getElementById('btnGoUpload');
+  btnGoUpload.addEventListener('click', () => goToScreen('upload'));
+
+  // Back buttons
+  document.getElementById('backToDashboard').addEventListener('click', () => goToScreen('dashboard'));
+  document.getElementById('backToUpload').addEventListener('click', () => goToScreen('upload'));
+  document.getElementById('backToTags').addEventListener('click', () => goToScreen('tags'));
+
+  // Forward navigation buttons
+  document.getElementById('toTags').addEventListener('click', () => goToScreen('tags'));
+  document.getElementById('toMetadata').addEventListener('click', () => goToScreen('metadata'));
+
+  const fileInput = document.getElementById('fileInput');
+  const browseBtn = document.getElementById('browseBtn');
+  const filePicked = document.getElementById('filePicked');
+
+  // When the user clicks "browse", trigger the hidden file input
+  browseBtn.addEventListener('click', () => {
+    fileInput.click();
+  });
+
+  // Show the selected file name
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files.length > 0) {
+      filePicked.hidden = false;
+      filePicked.textContent = `Selected file: ${fileInput.files[0].name}`;
+    } else {
+      filePicked.hidden = true;
+    }
+  });
+</script>

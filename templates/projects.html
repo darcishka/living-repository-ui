@@ -1,0 +1,17 @@
+<h1>Your Projects</h1>
+<ul>
+  {% for project in projects %}
+    <li>
+      <a href="{{ url_for('project_detail', project_id=project.project_id) }}">
+        {{ project.title }}
+      </a>
+    </li>
+  {% else %}
+    <li>No projects yet</li>
+  {% endfor %}
+</ul>
+
+<!-- Add Project Button -->
+<a href="{{ url_for('add_project') }}">
+  <button>Add New Project</button>
+</a>
