@@ -1,11 +1,37 @@
-<link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
-  <h1>{{ project_title }}</h1>
-  <p>{{ project_description }}</p>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>{{ project_title }} - Living Repository</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+  <!-- Navigation -->
+  <nav class="nav" style="display:flex; justify-content:space-between; align-items:center; padding:var(--space-4) var(--space-6); border-bottom:1px solid var(--border-color);">
+    <div class="logo h3">Living Repository</div>
+    <div>
+      <a href="{{ url_for('projects') }}" class="btn btn-link">My Projects</a>
+      <a href="{{ url_for('logout') }}" class="btn btn-link">Logout</a>
+    </div>
+  </nav>
 
-  <a href="{{ url_for('ingestion', project_id=project_id) }}">
-    <button class="btn btn-primary">Go to Ingestion</button>
-  </a>
+  <!-- Main Content -->
+  <main class="section" style="max-width:800px; margin:auto; padding:var(--space-10) var(--space-6);">
+    <div class="doc-card" style="padding:var(--space-8);">
+      <h1 class="h2" style="margin-bottom:var(--space-4);">{{ project_title }}</h1>
+      <p class="muted" style="margin-bottom:var(--space-8);">{{ project_description or "No description provided." }}</p>
 
-  <a href="{{ url_for('projects') }}">
-    <button class="btn btn-secondary">Go Back</button>
-  </a>
+      <div style="display:flex; gap:var(--space-4);">
+        <a href="{{ url_for('ingestion', project_id=project_id) }}" class="btn btn-primary">Go to Ingestion</a>
+        <a href="{{ url_for('projects') }}" class="btn btn-secondary">Back to Projects</a>
+      </div>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="section" style="text-align:center; padding:var(--space-8); border-top:1px solid var(--border-color); margin-top:var(--space-16);">
+    <p class="muted text-sm">&copy; {{ current_year }} Living Repository. All rights reserved.</p>
+  </footer>
+</body>
+</html>
