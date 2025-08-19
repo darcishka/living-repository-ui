@@ -9,12 +9,43 @@ import pytesseract
 from PIL import Image
 import fitz
 from docx import Document as DocxDocument
+import google.generativeai as genai
 
 
 app = Flask(__name__)
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.secret_key = "super-secret-key"  # change this in production!
+genai.configure(api_key="AIzaSyAYH1bmWz4hI1s2rgFXvAR5ygtOmoXf4Cs")
+
+def generate_tags(text):
+    """Use Gemini to generate tags from document text."""
+    try:
+        model = genai.GenerativeModel("gemini-1.5-flash")
+        prompt = f"Extract 5-10 concise topic tags for the following document, respond with the tags only, seperated by commas:\n\n{text[:3000]}"
+        response = model.generate_content(prompt)
+        tags = response.text.strip().split(",")
+        return [t.strip() for t in tags if t.strip()]
+    except Exception as e:
+        print("Tagging error:", e)
+        return []
+
+def get_or_create_tag(cur, label, category="auto"):
+    """Fetch a tag_id if exists, otherwise create one with a UUID."""
+    # Check if tag already exists
+    cur.execute("SELECT tag_id FROM Tag WHERE label = %s", (label,))
+    row = cur.fetchone()
+    if row:
+        return row["tag_id"]
+
+    # Generate UUID and insert new tag
+    new_id = str(uuid.uuid4())
+    cur.execute(
+        "INSERT INTO Tag (tag_id, label, category) VALUES (%s, %s, %s)",
+        (new_id, label, category)
+    )
+    return new_id
+    
 
 def extract_word_text(path):
     text = ""
@@ -216,7 +247,6 @@ def add_project():
 
     return redirect(url_for("projects"))
 
-
 @app.route("/project/<project_id>")
 def project_detail(project_id):
     if "user_id" not in session:
@@ -245,15 +275,69 @@ def project_detail(project_id):
     cur.close()
     conn.close()
 
+    # Render the template with chatbox included
     return render_template(
         "project_detail.html",
         project_id=project_id,
         project_title=project["title"],
         project_description=project["description"],
-        documents=documents
+        documents=documents,
+        current_year=datetime.datetime.now().year
     )
+
+@app.route("/project/<project_id>/chat", methods=["POST"])
+def project_chat(project_id):
+    if "user_id" not in session:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    user_message = request.json.get("message", "")
+
+    conn = get_db()
+    cur = conn.cursor(MySQLdb.cursors.DictCursor)
+
+    # Collect docs & tags for context
+    cur.execute("""
+        SELECT d.title, d.ocr_text, GROUP_CONCAT(t.label) as tags
+        FROM Document d
+        LEFT JOIN Document_Tag dt ON d.doc_id = dt.document_id
+        LEFT JOIN Tag t ON dt.tag_id = t.tag_id
+        JOIN Project_Document pd ON d.doc_id = pd.document_id
+        WHERE pd.project_id = %s
+        GROUP BY d.doc_id
+    """, (project_id,))
+    docs = cur.fetchall()
+    print(docs)
+    cur.close()
+    conn.close()
+
+    # Build context string
+    context_parts = []
+    for d in docs:
+        tags_str = f" [tags: {d['tags']}]" if d['tags'] else ""
+        context_parts.append(f"Document: {d['title']}{tags_str}\n{d.get('ocr_text','')[:1000]}")
+
+    context = "\n\n".join(context_parts)
+
+    # Gemini request
+    try:
+        model = genai.GenerativeModel("gemini-1.5-flash")
+        prompt = f"""
+        You are assisting a user with project documents.
+
+        Project Documents:
+        {context}
+
+        User Question: {user_message}
+        """
+        response = model.generate_content(prompt)
+        reply = response.text.strip()
+    except Exception as e:
+        print("Chat error:", e)
+        reply = "Sorry, I had trouble generating a response."
+
+    return jsonify({"reply": reply})
     
-@app.route("/project/<project_id>/upload", methods=["GET", "POST"])
+@app.route("/project/<project_id>/upload", methods=["POST"])
 def project_upload(project_id):
     if "user_id" not in session:
         return jsonify({"error": "Not logged in"}), 401
@@ -261,83 +345,71 @@ def project_upload(project_id):
     conn = get_db()
     cur = conn.cursor()
 
-    if request.method == "POST":
-        file = request.files["file"]
-        title = request.form["title"]
-        description = request.form.get("description")
-        privacy = request.form["privacy"]
-        user_id = session["user_id"]
+    file = request.files["file"]
+    title = request.form["title"]
+    description = request.form.get("description")
+    privacy = request.form["privacy"]
+    user_id = session["user_id"]
 
-        filename = secure_filename(file.filename)
-        path = os.path.join(UPLOAD_FOLDER, filename)
-        file.save(path)
+    filename = secure_filename(file.filename)
+    path = os.path.join(UPLOAD_FOLDER, filename)
+    file.save(path)
 
-        # Detect type
-        ext = filename.split(".")[-1].lower()
-        if ext in ["pdf"]:
-            doc_type = "pdf"
-        elif ext in ["doc", "docx"]:
-            doc_type = "word"
-        elif ext in ["jpg", "jpeg", "png", "tiff"]:
-            doc_type = "image"
-        else:
-            doc_type = "other"
+    # Detect type + OCR
+    ext = filename.split(".")[-1].lower()
+    if ext in ["pdf"]:
+        doc_type = "pdf"
+        ocr_text = extract_pdf_text(path)
+    elif ext in ["doc", "docx"]:
+        doc_type = "word"
+        ocr_text = extract_word_text(path)
+    elif ext in ["jpg", "jpeg", "png", "tiff"]:
+        doc_type = "image"
+        ocr_text = pytesseract.image_to_string(Image.open(path))
+    else:
+        doc_type = "other"
+        ocr_text = ""
 
-        pytesseract.pytesseract.tesseract_cmd = r"C:\\Program Files\\Tesseract-OCR\\tesseract.exe"
+    # Generate tags with Gemini
+    tags = generate_tags(ocr_text or description or title)
 
-        # OCR extraction (optional)
-        ocr_text = None
-        if doc_type == "image":
-            ocr_text = pytesseract.image_to_string(Image.open(path))
-        elif doc_type == "pdf":
-            ocr_text = extract_pdf_text(path)
-        elif doc_type == "word":
-            ocr_text = extract_word_text(path)
-
-        doc_id = str(uuid.uuid4())
-
-        cur.execute("""
+    # Insert document
+    doc_id = str(uuid.uuid4())
+    cur.execute("""
         INSERT INTO Document (doc_id, uploader_id, title, description, url, upload_date, type, ocr_text, privacy_level, status)
         VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
-        """, (
-            doc_id,
-            user_id,
-            title,
-            description,
-            path,
-            datetime.datetime.now(),
-            doc_type,
-            ocr_text,
-            privacy,
-            "pending"
-        ))
+    """, (
+        doc_id,
+        user_id,
+        title,
+        description,
+        path,
+        datetime.datetime.now(),
+        doc_type,
+        ocr_text,
+        privacy,
+        "pending"
+    ))
 
-        cur.execute("""
+    # Link document to project
+    cur.execute("""
         INSERT INTO Project_Document (project_id, document_id)
         VALUES (%s,%s)
-        """, (project_id, doc_id))
+    """, (project_id, doc_id))
 
-        conn.commit()
-        cur.close()
-        conn.close()
+    # Insert tags and link them
+    for tag in tags:
+        tag_id = get_or_create_tag(cur, tag)
+        cur.execute(
+            "INSERT INTO Document_Tag (document_id, tag_id) VALUES (%s, %s)",
+            (doc_id, tag_id)
+        )
 
-        # Return JSON for AJAX
-        return jsonify({"success": True, "doc_id": doc_id, "title": title, "description": description})
-
-    # GET requests can still render dashboard
-    cur.execute("""
-        SELECT d.doc_id, d.title, d.description, d.upload_date, d.status, u.username as author
-        FROM Document d
-        JOIN Project_Document pd ON d.doc_id = pd.document_id
-        LEFT JOIN User u ON d.uploader_id = u.user_id
-        WHERE pd.project_id=%s
-        ORDER BY d.upload_date DESC
-    """, (project_id,))
-    documents = cur.fetchall()
+    conn.commit()
     cur.close()
     conn.close()
 
-    return render_template("ingestion.html", project_id=project_id, project={"title": "Example"}, documents=documents)
+    return jsonify({"success": True, "doc_id": doc_id, "title": title, "tags": tags})
 
 @app.route("/document/<doc_id>", methods=["GET", "POST"])
 def document_detail(doc_id):
@@ -394,18 +466,25 @@ def ingestion(project_id):
     conn = get_db()
     cur = conn.cursor(MySQLdb.cursors.DictCursor)
 
-
     # Project info
     cur.execute("SELECT title, description FROM Project WHERE project_id=%s", (project_id,))
     project = cur.fetchone()
 
-    # Project documents
+    # Project documents with tags
     cur.execute("""
-        SELECT d.doc_id, d.title, d.upload_date, u.name AS author, d.status
+        SELECT d.doc_id,
+               d.title,
+               d.upload_date,
+               u.name AS author,
+               d.status,
+               GROUP_CONCAT(t.label) AS tags
         FROM Document d
         JOIN Project_Document pd ON d.doc_id = pd.document_id
         LEFT JOIN User u ON d.uploader_id = u.user_id
+        LEFT JOIN Document_Tag dt ON d.doc_id = dt.document_id
+        LEFT JOIN Tag t ON dt.tag_id = t.tag_id
         WHERE pd.project_id = %s
+        GROUP BY d.doc_id
         ORDER BY d.upload_date DESC
     """, (project_id,))
     documents = cur.fetchall()
@@ -413,10 +492,14 @@ def ingestion(project_id):
     cur.close()
     conn.close()
 
-    return render_template("ingestion.html",
-                           project=project,
-                           project_id=project_id,
-                           documents=documents)
+    return render_template(
+        "ingestion.html",
+        project=project,
+        project_id=project_id,
+        documents=documents
+    )
+
+
 
 if __name__ == "__main__":
     app.run(debug=True)

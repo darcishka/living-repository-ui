@@ -57,34 +57,33 @@
         </div>
 
         <!-- Document List -->
-        <div class="card-list" id="docList">
-          {% for doc in documents %}
-          <a href="{{ url_for('document_detail', doc_id=doc.doc_id) }}" class="doc-link">
-            <article class="doc-card">
-              <div class="doc-row">
-                <div class="doc-title">{{ doc.title }}</div>
-                <span class="badge
-                  {% if doc.status == 'Complete' %}badge-success
-                  {% elif doc.status in ['In Progress','in_progress','in progress'] %}badge-warning
-                  {% elif doc.status in ['Failed','Error'] %}badge-danger
-                  {% else %}badge-secondary{% endif %}">
-                  {{ doc.status or "Pending" }}
-                </span>
-              </div>
-              <div class="doc-meta">
-                <span>Author: {{ doc.author or "Unknown" }}</span>
-                <span>Updated: {{ doc.upload_date }}</span>
-              </div>
-              {% if doc.description %}
-              <p class="text-sm muted" style="margin-top:6px;">{{ doc.description }}</p>
-              {% endif %}
-            </article>
-          </a>
-          {% else %}
-          <p>No documents uploaded yet.</p>
-          {% endfor %}
-        </div>
-      </section>
+        {% for doc in documents %}
+        <article class="doc-card">
+          <div class="doc-row">
+            <div class="doc-title">{{ doc.title }}</div>
+            <span class="badge
+              {% if doc.status == 'Complete' %}badge-success
+              {% elif doc.status in ['In Progress','in_progress','in progress'] %}badge-warning
+              {% elif doc.status in ['Failed','Error'] %}badge-danger
+              {% else %}badge-secondary{% endif %}">
+              {{ doc.status or "Pending" }}
+            </span>
+          </div>
+
+          <div class="doc-meta">
+            <span>Author: {{ doc.author or "Unknown" }}</span>
+            <span>Updated: {{ doc.upload_date }}</span>
+          </div>
+
+          {% if doc.tags %}
+          <div class="doc-tags" style="margin-top:8px; display:flex; flex-wrap:wrap; gap:6px;">
+            {% for tag in doc.tags.split(",") %}
+              <span class="badge badge-secondary">{{ tag.strip() }}</span>
+            {% endfor %}
+          </div>
+          {% endif %}
+        </article>
+      {% endfor %}
 
       <!-- UPLOAD -->
       <section class="screen" data-screen="upload">
