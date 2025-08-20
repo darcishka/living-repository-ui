@@ -57,61 +57,58 @@
         </div>
 
         <!-- Document List -->
-        <article class="doc-card">
-        <a href="{{ url_for('document_detail', project_id=project_id, doc_id=doc.doc_id) }}" style="text-decoration:none; color:inherit; display:block;">
-          <div class="doc-row">
-            <div class="doc-title">{{ doc.title }}</div>
-            <span class="badge
-              {% if doc.status == 'Complete' %}badge-success
-              {% elif doc.status in ['In Progress','in_progress','in progress'] %}badge-warning
-              {% elif doc.status in ['Failed','Error'] %}badge-danger
-              {% else %}badge-secondary{% endif %} status-badge">
-              {{ doc.status or "Pending" }}
-            </span>
-          </div>
+        <div id="docList">
+          {% for doc in documents %}
+          <article class="doc-card" data-doc-id="{{ doc.doc_id }}">
+            <a href="{{ url_for('document_detail', project_id=project_id, doc_id=doc.doc_id) }}" style="display:block; text-decoration:none; color:inherit;">
+              <div class="doc-row">
+                <div class="doc-title">{{ doc.title }}</div>
+                <span class="badge
+                  {% if doc.status == 'Complete' %}badge-success
+                  {% elif doc.status in ['In Progress','in_progress','in progress'] %}badge-warning
+                  {% elif doc.status in ['Failed','Error'] %}badge-danger
+                  {% else %}badge-secondary{% endif %} status-badge">
+                  {{ doc.status or "Pending" }}
+                </span>
+              </div>
 
-          <div class="doc-meta">
-            <span>Author: {{ doc.author or "Unknown" }}</span>
-            <span>Updated: {{ doc.upload_date }}</span>
-          </div>
+              <div class="doc-meta">
+                <span>Author: {{ doc.author or "Unknown" }}</span>
+                <span>Updated: {{ doc.upload_date }}</span>
+              </div>
 
-          {% if doc.tags %}
-          <div class="doc-tags" style="margin-top:8px; display:flex; flex-wrap:wrap; gap:6px;">
-            {% for tag in doc.tags.split(",") %}
-              <span class="badge badge-secondary">{{ tag.strip() }}</span>
-            {% endfor %}
-          </div>
-          {% endif %}
-        </a>
+              {% if doc.tags %}
+              <div class="doc-tags" style="margin-top:8px; display:flex; flex-wrap:wrap; gap:6px;">
+                {% for tag in doc.tags.split(",") %}
+                  <span class="badge badge-secondary">{{ tag.strip() }}</span>
+                {% endfor %}
+              </div>
+              {% endif %}
+            </a>
 
-        <!-- Process Button (outside link so it’s clickable separately) -->
-        {% if doc.status != 'Complete' %}
-        <button class="btn btn-sm btn-primary process-btn" data-doc-id="{{ doc.doc_id }}">
-          Process
-        </button>
-        {% endif %}
-      </article>
+            {% if doc.status != 'Complete' %}
+            <button class="btn btn-sm btn-primary process-btn" data-doc-id="{{ doc.doc_id }}">
+              Process
+            </button>
+            {% endif %}
+          </article>
+          {% endfor %}
+        </div>
 
-          <!-- Process Button -->
-          {% if doc.status != 'Complete' %}
-          <button class="btn btn-sm btn-primary process-btn" data-doc-id="{{ doc.doc_id }}">
-            Process
-          </button>
-          {% endif %}
-        </article>
-        {% endfor %}
+      </section>
 
       <!-- UPLOAD -->
       <section class="screen" data-screen="upload">
         <h2 class="h2">Upload Document</h2>
-
         <form id="uploadForm" enctype="multipart/form-data">
           <div id="dropzone" class="dropzone" tabindex="0">
             <input id="fileInput" name="file" type="file" hidden />
             <div class="dropzone-inner">
               <div class="drop-illustration">⬆</div>
               <div class="drop-title">Drag & drop file here</div>
-              <div class="drop-sub">or <button id="browseBtn" type="button" class="btn btn-link">browse</button></div>
+              <div class="drop-sub">
+                or <button id="browseBtn" type="button" class="btn btn-link">browse</button>
+              </div>
               <div class="drop-hint">PDF, DOCX, or image only. Max 25MB.</div>
               <div id="filePicked" class="drop-picked" hidden></div>
             </div>
@@ -188,31 +185,16 @@
 
   <!-- JS -->
   <script>
-    document.querySelectorAll('.process-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-    const docId = btn.dataset.docId;
-    fetch(`/project/${PROJECT_ID}/document/${docId}/process`, {
-        method: 'POST'
-        })
-        .then(res => res.json())
-        .then(data => {
-          if(data.success){
-            const card = btn.closest('.doc-card');
-            const badge = card.querySelector('.status-badge');
-            badge.textContent = 'Complete';
-            badge.className = 'badge badge-success status-badge';
-            btn.remove(); // remove the process button
-          } else {
-            alert('Failed to process document.');
-          }
-        })
-        .catch(err => console.error(err));
-      });
-    });
-    document.getElementById('year').textContent = new Date().getFullYear();
+    const PROJECT_ID = "{{ project_id }}"; // must be top
     const screens = document.querySelectorAll('.screen');
     const steps = document.querySelectorAll('.ingest-step');
-    const PROJECT_ID = "{{ project_id }}";
+    const docList = document.getElementById('docList');
+    const fileInput = document.getElementById('fileInput');
+    const browseBtn = document.getElementById('browseBtn');
+    const filePicked = document.getElementById('filePicked');
+    const uploadForm = document.getElementById('uploadForm');
+
+    document.getElementById('year').textContent = new Date().getFullYear();
 
     function goToScreen(screenName) {
       screens.forEach(s => s.classList.toggle('active', s.dataset.screen === screenName));
@@ -224,7 +206,7 @@
       });
     }
 
-    // Navigation buttons
+    // Navigation
     document.getElementById('btnGoUpload').addEventListener('click', () => goToScreen('upload'));
     document.getElementById('backToDashboard').addEventListener('click', () => goToScreen('dashboard'));
     document.getElementById('backToUpload')?.addEventListener('click', () => goToScreen('upload'));
@@ -232,9 +214,6 @@
     document.getElementById('toMetadata')?.addEventListener('click', () => goToScreen('metadata'));
 
     // File input
-    const fileInput = document.getElementById('fileInput');
-    const browseBtn = document.getElementById('browseBtn');
-    const filePicked = document.getElementById('filePicked');
     browseBtn.addEventListener('click', () => fileInput.click());
     fileInput.addEventListener('change', () => {
       if(fileInput.files.length > 0){
@@ -243,39 +222,60 @@
       } else { filePicked.hidden = true; }
     });
 
-    // AJAX upload
-    const uploadForm = document.getElementById('uploadForm');
-    const docList = document.getElementById('docList');
+    // Process buttons
+    function attachProcessButtons(){
+      document.querySelectorAll('.process-btn').forEach(btn => {
+        if(btn.dataset.bound) return;
+        btn.dataset.bound = true;
+        btn.addEventListener('click', e => {
+          e.stopPropagation(); // don't trigger card link
+          const docId = btn.dataset.docId;
+          fetch(`/project/${PROJECT_ID}/document/${docId}/process`, { method: 'POST' })
+            .then(res => res.json())
+            .then(data => {
+              if(data.success){
+                const card = btn.closest('.doc-card');
+                const badge = card.querySelector('.status-badge');
+                badge.textContent = 'Complete';
+                badge.className = 'badge badge-success status-badge';
+                btn.remove();
+              } else alert('Failed to process document.');
+            })
+            .catch(console.error);
+        });
+      });
+    }
+    attachProcessButtons();
 
+    // AJAX Upload
     uploadForm.addEventListener('submit', e => {
       e.preventDefault();
       const formData = new FormData(uploadForm);
 
-      fetch(`/project/${PROJECT_ID}/upload`, {
-        method: 'POST',
-        body: formData
-      })
-      .then(res => res.json())
-      .then(data => {
-        if(data.success){
-          const article = document.createElement('article');
-          article.className = 'doc-card';
-          article.innerHTML = `
-            <div class="doc-row">
-              <div class="doc-title">${data.title}</div>
-              <span class="badge badge-secondary">Pending</span>
-            </div>
-            ${data.description ? `<p class="text-sm muted" style="margin-top:6px;">${data.description}</p>` : ''}
-          `;
-          docList.prepend(article);
-          uploadForm.reset();
-          filePicked.hidden = true;
-          alert('Document uploaded successfully!');
-          goToScreen('dashboard');
-        } else {
-          alert('Upload failed');
-        }
-      }).catch(err => console.error(err));
+      fetch(`/project/${PROJECT_ID}/upload`, { method: 'POST', body: formData })
+        .then(res => res.json())
+        .then(data => {
+          if(data.success){
+            const article = document.createElement('article');
+            article.className = 'doc-card';
+            article.innerHTML = `
+              <a href="/project/${PROJECT_ID}/document/${data.doc_id}" style="display:block; text-decoration:none; color:inherit;">
+                <div class="doc-row">
+                  <div class="doc-title">${data.title}</div>
+                  <span class="badge badge-secondary">Pending</span>
+                </div>
+                ${data.description ? `<p class="text-sm muted" style="margin-top:6px;">${data.description}</p>` : ''}
+              </a>
+              <button class="btn btn-sm btn-primary process-btn" data-doc-id="${data.doc_id}">Process</button>
+            `;
+            docList.prepend(article);
+            uploadForm.reset();
+            filePicked.hidden = true;
+            attachProcessButtons(); // bind the new button
+            alert('Document uploaded successfully!');
+            goToScreen('dashboard');
+          } else alert('Upload failed');
+        }).catch(console.error);
     });
   </script>
 </body>

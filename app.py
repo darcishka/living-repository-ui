@@ -23,6 +23,7 @@ model = genai.GenerativeModel("Gemini 2.5-Flash-Lite")
 def generate_tags(text):
     """Use Gemini to generate tags from document text."""
     try:
+        model = genai.GenerativeModel("gemini-2.5-flash-lite")
         prompt = f"Extract 5-10 concise topic tags for the following document, respond with the tags only, seperated by commas:\n\n{text[:3000]}"
         response = model.generate_content(prompt)
         tags = response.text.strip().split(",")
@@ -321,7 +322,6 @@ def project_chat(project_id):
 
     # Gemini request
     try:
-        model = genai.GenerativeModel("gemini-1.5-flash")
         prompt = f"""
         You are assisting a user with project documents.
 
@@ -330,6 +330,7 @@ def project_chat(project_id):
 
         User Question: {user_message}
         """
+        model = genai.GenerativeModel("gemini-2.5-flash-lite")
         response = model.generate_content(prompt)
         reply = response.text.strip()
     except Exception as e:
