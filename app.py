@@ -19,6 +19,10 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.secret_key = "super-secret-key"  # change this in production!
 genai.configure(api_key="AIzaSyAYH1bmWz4hI1s2rgFXvAR5ygtOmoXf4Cs")
 
+# ------------------ Functions -----------------------
+
+
+# --- Tags ---
 def generate_tags(text):
     """Use Gemini to generate tags from document text."""
     try:
@@ -46,8 +50,9 @@ def get_or_create_tag(cur, label, category="auto"):
         (new_id, label, category)
     )
     return new_id
-    
 
+
+# --- Extract Text ---
 def extract_word_text(path):
     text = ""
     doc = DocxDocument(path)
@@ -72,6 +77,11 @@ def get_db():
         passwd="4pplec4r7b$77ery",
         db="living_repository"
     )
+
+
+
+# ------------------ Pages / Routes -----------------------
+
 
 @app.route("/")
 def index():
@@ -147,7 +157,6 @@ def login():
         return redirect(url_for("dashboard"))   # 👈 send to dashboard now
     else:
         return "Invalid email or password"
-
 
 # new route for dashboard
 @app.route("/dashboard")
@@ -504,3 +513,6 @@ def ingestion(project_id):
 
 if __name__ == "__main__":
     app.run(debug=True)
+
+
+
