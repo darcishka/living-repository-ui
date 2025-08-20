@@ -82,8 +82,6 @@ def get_db():
 
 
 # ------------------ Pages / Routes -----------------------
-
-
 @app.route("/")
 def index():
     # If logged in → skip landing page → go to dashboard
