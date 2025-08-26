@@ -72,7 +72,7 @@ def extract_pdf_text(path):
 # --- Database connection helper ---
 def get_db():
     return MySQLdb.connect(
-        host="1.120.188.119",
+        host="110.147.201.243",
         port=3306,
         user="root",
         passwd="4pplec4r7b$77ery",
@@ -352,7 +352,7 @@ def project_upload(project_id):
         return jsonify({"error": "Not logged in"}), 401
 
     conn = get_db()
-    cur = conn.cursor()
+    cur = conn.cursor(MySQLdb.cursors.DictCursor)
 
     file = request.files["file"]
     title = request.form["title"]
