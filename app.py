@@ -49,6 +49,15 @@ def dict_cursor(cursor):
     columns = [column[0] for column in cursor.description]
     return [dict(zip(columns, row)) for row in cursor.fetchall()]
 
+def get_project_title(project_id):
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("SELECT title FROM Project WHERE project_id=?", (project_id,))
+    row = cur.fetchone()
+    cur.close()
+    conn.close()
+    return row[0] if row else "Unknown Project"
+
 # ------------------ Document & Tag Functions ----------------
 def generate_tags(text):
     try:
@@ -202,7 +211,6 @@ def create_project():
     conn.close()
     return redirect(url_for("projects"))
 
-# ------------------ Project Details -----------------
 @app.route("/project/<project_id>")
 def project_detail(project_id):
     if "user_id" not in session:
@@ -210,6 +218,8 @@ def project_detail(project_id):
 
     conn = get_db()
     cur = conn.cursor()
+
+    # Fetch project info
     cur.execute("SELECT title, description FROM Project WHERE project_id=?", (project_id,))
     project = cur.fetchone()
     if not project:
@@ -220,6 +230,7 @@ def project_detail(project_id):
     columns = [column[0] for column in cur.description]
     project = dict(zip(columns, project))
 
+    # Fetch documents
     cur.execute("""
         SELECT d.doc_id, d.title
         FROM Document d
@@ -227,6 +238,7 @@ def project_detail(project_id):
         WHERE pd.project_id=?
     """, (project_id,))
     documents = dict_cursor(cur)
+
     cur.close()
     conn.close()
 
@@ -485,6 +497,160 @@ def project_chat(project_id):
         reply = "Sorry, I had trouble generating a response."
 
     return jsonify({"reply": reply})
+
+@app.route("/project/<project_id>/chats")
+def project_chats(project_id):
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
+    user_id = session["user_id"]
+    conn = get_db()
+    cur = conn.cursor()
+
+    # Fetch all chats for this project and user
+    cur.execute("""
+        SELECT chat_id, chat_name, created_at
+        FROM Chat
+        WHERE project_id=? AND user_id=?
+        ORDER BY created_at DESC
+    """, (project_id, user_id))
+    chats = dict_cursor(cur)
+
+    cur.close()
+    conn.close()
+
+    return render_template("project_chats.html",
+                           project_id=project_id,
+                           chats=chats,
+                           current_year=datetime.datetime.now().year,
+                           project_title=get_project_title(project_id))
+
+@app.route("/project/<project_id>/chat/<chat_id>")
+def load_chat(project_id, chat_id):
+    if "user_id" not in session:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    user_id = session["user_id"]
+    conn = get_db()
+    cur = conn.cursor()
+
+    # Ensure chat belongs to user and project
+    cur.execute("""
+        SELECT chat_id FROM Chat
+        WHERE chat_id=? AND project_id=? AND user_id=?
+    """, (chat_id, project_id, user_id))
+    if not cur.fetchone():
+        cur.close()
+        conn.close()
+        return jsonify([])
+
+    # Fetch messages
+    cur.execute("""
+        SELECT sender, content, created_at
+        FROM ChatContent
+        WHERE chat_id=?
+        ORDER BY created_at ASC
+    """, (chat_id,))
+    messages = dict_cursor(cur)
+
+    cur.close()
+    conn.close()
+
+    return jsonify(messages)
+
+@app.route("/project/<project_id>/chat/<chat_id>/send", methods=["POST"])
+def send_message(project_id, chat_id):
+    if "user_id" not in session:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    user_id = session["user_id"]
+    message = request.json.get("message", "")
+
+    conn = get_db()
+    cur = conn.cursor()
+
+    # --- Save user message ---
+    content_id_user = str(uuid.uuid4())
+    cur.execute("""
+        INSERT INTO ChatContent (content_id, chat_id, sender, content, created_at)
+        VALUES (?, ?, 'user', ?, ?)
+    """, (content_id_user, chat_id, message, datetime.datetime.now(datetime.timezone.utc)))
+    conn.commit()
+
+    # --- Build AI prompt from project documents ---
+    cur.execute("""
+        SELECT 
+            d.title, 
+            LEFT(d.ocr_text, 1000) AS ocr_text,
+            STRING_AGG(t.label, ',') AS tags
+        FROM Document d
+        LEFT JOIN Document_Tag dt ON d.doc_id = dt.document_id
+        LEFT JOIN Tag t ON dt.tag_id = t.tag_id
+        JOIN Project_Document pd ON d.doc_id = pd.document_id
+        WHERE pd.project_id = ?
+        GROUP BY d.doc_id, d.title, d.ocr_text
+    """, (project_id,))
+    docs = dict_cursor(cur)  # your helper to convert rows to dict
+
+    context_parts = []
+    for d in docs:
+        tags_str = f" [tags: {d['tags']}]" if d['tags'] else ""
+        context_parts.append(f"Document: {d['title']}{tags_str}\n{d.get('ocr_text','')}")
+
+    context = "\n\n".join(context_parts)
+
+    # --- Generate AI response ---
+    try:
+        prompt = f"""
+        You are assisting a user with project documents.
+
+        Project Documents:
+        {context}
+
+        User Question: {message}
+        """
+        model = genai.GenerativeModel("gemini-2.5-flash-lite")
+        response = model.generate_content(prompt)
+        reply = response.text.strip()
+    except Exception as e:
+        print("AI error:", e)
+        reply = "Sorry, I had trouble generating a response."
+
+    # --- Save AI response ---
+    content_id_ai = str(uuid.uuid4())
+    cur.execute("""
+        INSERT INTO ChatContent (content_id, chat_id, sender, content, created_at)
+        VALUES (?, ?, 'ai', ?, ?)
+    """, (content_id_ai, chat_id, reply, datetime.datetime.now(datetime.timezone.utc)))
+    conn.commit()
+
+    cur.close()
+    conn.close()
+
+    return jsonify({"reply": reply})
+
+@app.route("/project/<project_id>/chat/new", methods=["POST"])
+def new_chat(project_id):
+    if "user_id" not in session:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    user_id = session["user_id"]
+    chat_name = request.json.get("chat_name", "").strip()
+    if not chat_name:
+        return jsonify({"error": "Chat name is required"}), 400
+
+    chat_id = str(uuid.uuid4())
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("""
+        INSERT INTO Chat (chat_id, project_id, user_id, chat_name, created_at)
+        VALUES (?, ?, ?, ?, ?)
+    """, (chat_id, project_id, user_id, chat_name, datetime.datetime.utcnow()))
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    return jsonify({"chat_id": chat_id, "chat_name": chat_name})
 
 # ------------------ Main -----------------
 if __name__ == "__main__":

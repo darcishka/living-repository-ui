@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Project Chats - {{ project_title }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+  <style>
+    #chatbox { border:1px solid var(--border-color); border-radius:8px; padding:12px; max-height:400px; overflow-y:auto; margin-bottom:12px; background:#f9f9f9; }
+    .chat-message { margin-bottom:10px; }
+    .user { font-weight:bold; color:#0066cc; }
+    .ai { font-weight:bold; color:#009933; }
+    .chat-sidebar { width:200px; border-right:1px solid var(--border-color); padding-right:12px; }
+    .chat-item { cursor:pointer; padding:6px; border-radius:4px; margin-bottom:4px; }
+    .chat-item:hover { background-color:#eee; }
+    .chat-item.active { background-color:#ddd; font-weight:bold; }
+  </style>
+</head>
+<body>
+  <nav class="nav">
+    <div class="logo h3">Living Repository</div>
+    <div>
+      <a href="{{ url_for('projects') }}" class="btn btn-link">My Projects</a>
+      <a href="{{ url_for('logout') }}" class="btn btn-link">Logout</a>
+    </div>
+  </nav>
+
+  <main style="max-width:1000px; margin:auto; padding:20px; display:flex; gap:20px;">
+
+    <!-- Chat Sidebar -->
+    <div class="chat-sidebar">
+    <h3>Chats</h3>
+    <ul id="chatList" style="list-style:none; padding-left:0; max-height:500px; overflow-y:auto;">
+        {% for chat in chats %}
+        <li data-chat-id="{{ chat.chat_id }}" class="chat-item">{{ chat.chat_name }}</li>
+        {% endfor %}
+    </ul>
+    <button id="newChatBtn" class="btn btn-outline" style="margin-top:10px; width:100%;">+ New Chat</button>
+    <a href="{{ url_for('project_detail', project_id=project_id) }}" class="btn btn-secondary" style="margin-bottom:10px; display:block;">← Back to Project</a>
+
+    </div>
+
+    <!-- Chat Window -->
+    <div style="flex:1; display:flex; flex-direction:column;">
+      <h2 class="h3">Project Assistant for {{ project_title }}</h2>
+      <div id="chatbox"></div>
+      <form id="chat-form" style="display:flex; gap:8px; margin-top:8px;">
+        <input type="text" id="chat-input" placeholder="Ask a question..." class="input" style="flex:1;" required>
+        <button type="submit" class="btn btn-primary">Send</button>
+      </form>
+    </div>
+
+  </main>
+
+  <script>
+    const PROJECT_ID = "{{ project_id }}";
+    const chatForm = document.getElementById("chat-form");
+    const chatInput = document.getElementById("chat-input");
+    const chatbox = document.getElementById("chatbox");
+    const chatList = document.getElementById("chatList");
+    let currentChatId = chatList.querySelector(".chat-item")?.dataset.chatId;
+
+    function setActiveChat(chatId) {
+      chatList.querySelectorAll(".chat-item").forEach(li => {
+        li.classList.toggle("active", li.dataset.chatId === chatId);
+      });
+    }
+
+    async function loadChat(chatId){
+      if(!chatId) return;
+      currentChatId = chatId;
+      setActiveChat(chatId);
+      const res = await fetch(`/project/${PROJECT_ID}/chat/${chatId}`);
+      const messages = await res.json();
+      chatbox.innerHTML = "";
+      messages.forEach(m => {
+        chatbox.innerHTML += `<div class="chat-message"><span class="${m.sender}">${m.sender === 'user' ? 'You' : 'AI'}:</span> ${m.content}</div>`;
+      });
+      chatbox.scrollTop = chatbox.scrollHeight;
+    }
+
+    chatList.addEventListener("click", e => {
+      const item = e.target.closest(".chat-item");
+      if(item) loadChat(item.dataset.chatId);
+    });
+
+    document.getElementById("newChatBtn").addEventListener("click", async () => {
+      const name = prompt("Enter chat name:");
+      if(!name) return;
+      const res = await fetch(`/project/${PROJECT_ID}/chat/new`, {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({ chat_name: name })
+      });
+      const data = await res.json();
+      const li = document.createElement("li");
+      li.className = "chat-item";
+      li.dataset.chatId = data.chat_id;
+      li.textContent = data.chat_name;
+      chatList.prepend(li);
+      loadChat(data.chat_id);
+    });
+
+    chatForm.addEventListener("submit", async e => {
+      e.preventDefault();
+      if(!currentChatId) { alert("Please select or create a chat first."); return; }
+
+      const message = chatInput.value;
+      chatInput.value = "";
+
+      chatbox.innerHTML += `<div class="chat-message"><span class="user">You:</span> ${message}</div>`;
+      chatbox.scrollTop = chatbox.scrollHeight;
+
+      const res = await fetch(`/project/${PROJECT_ID}/chat/${currentChatId}/send`, {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({ message })
+      });
+      const data = await res.json();
+      chatbox.innerHTML += `<div class="chat-message"><span class="ai">AI:</span> ${data.reply}</div>`;
+      chatbox.scrollTop = chatbox.scrollHeight;
+    });
+
+    if(currentChatId) loadChat(currentChatId);
+  </script>
+</body>
+</html>
