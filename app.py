@@ -450,54 +450,6 @@ def document_detail(project_id, doc_id):
                            document=document,
                            project_id=project_id)
 
-
-# ------------------ Chat / AI -----------------
-@app.route("/project/<project_id>/chat", methods=["POST"])
-def project_chat(project_id):
-    if "user_id" not in session:
-        return jsonify({"error": "Unauthorized"}), 401
-
-    user_message = request.json.get("message", "")
-    conn = get_db()
-    cur = conn.cursor()
-
-    cur.execute("""
-        SELECT d.title, d.ocr_text, GROUP_CONCAT(t.label) as tags
-        FROM Document d
-        LEFT JOIN Document_Tag dt ON d.doc_id = dt.document_id
-        LEFT JOIN Tag t ON dt.tag_id = t.tag_id
-        JOIN Project_Document pd ON d.doc_id = pd.document_id
-        WHERE pd.project_id = ?
-        GROUP BY d.doc_id
-    """, (project_id,))
-    docs = dict_cursor(cur)
-    cur.close()
-    conn.close()
-
-    context_parts = []
-    for d in docs:
-        tags_str = f" [tags: {d['tags']}]" if d['tags'] else ""
-        context_parts.append(f"Document: {d['title']}{tags_str}\n{d.get('ocr_text','')[:1000]}")
-    context = "\n\n".join(context_parts)
-
-    try:
-        prompt = f"""
-        You are assisting a user with project documents.
-
-        Project Documents:
-        {context}
-
-        User Question: {user_message}
-        """
-        model = genai.GenerativeModel("gemini-2.5-flash-lite")
-        response = model.generate_content(prompt)
-        reply = response.text.strip()
-    except Exception as e:
-        print("Chat error:", e)
-        reply = "Sorry, I had trouble generating a response."
-
-    return jsonify({"reply": reply})
-
 @app.route("/project/<project_id>/chats")
 def project_chats(project_id):
     if "user_id" not in session:
