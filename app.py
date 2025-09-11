@@ -640,7 +640,7 @@ def send_message(project_id, chat_id):
 
         reply = "Sorry, I had trouble generating a response."
 
-    reply = str(deny_set) + reply
+    #reply = str(deny_set) + reply
 
     return jsonify({"reply": reply})
 
