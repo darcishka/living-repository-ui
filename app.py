@@ -450,54 +450,6 @@ def document_detail(project_id, doc_id):
                            document=document,
                            project_id=project_id)
 
-
-# ------------------ Chat / AI -----------------
-@app.route("/project/<project_id>/chat", methods=["POST"])
-def project_chat(project_id):
-    if "user_id" not in session:
-        return jsonify({"error": "Unauthorized"}), 401
-
-    user_message = request.json.get("message", "")
-    conn = get_db()
-    cur = conn.cursor()
-
-    cur.execute("""
-        SELECT d.title, d.ocr_text, GROUP_CONCAT(t.label) as tags
-        FROM Document d
-        LEFT JOIN Document_Tag dt ON d.doc_id = dt.document_id
-        LEFT JOIN Tag t ON dt.tag_id = t.tag_id
-        JOIN Project_Document pd ON d.doc_id = pd.document_id
-        WHERE pd.project_id = ?
-        GROUP BY d.doc_id
-    """, (project_id,))
-    docs = dict_cursor(cur)
-    cur.close()
-    conn.close()
-
-    context_parts = []
-    for d in docs:
-        tags_str = f" [tags: {d['tags']}]" if d['tags'] else ""
-        context_parts.append(f"Document: {d['title']}{tags_str}\n{d.get('ocr_text','')[:1000]}")
-    context = "\n\n".join(context_parts)
-
-    try:
-        prompt = f"""
-        You are assisting a user with project documents.
-
-        Project Documents:
-        {context}
-
-        User Question: {user_message}
-        """
-        model = genai.GenerativeModel("gemini-2.5-flash-lite")
-        response = model.generate_content(prompt)
-        reply = response.text.strip()
-    except Exception as e:
-        print("Chat error:", e)
-        reply = "Sorry, I had trouble generating a response."
-
-    return jsonify({"reply": reply})
-
 @app.route("/project/<project_id>/chats")
 def project_chats(project_id):
     if "user_id" not in session:
@@ -729,6 +681,139 @@ def new_chat(project_id):
     conn.close()
 
     return jsonify({"chat_id": chat_id, "chat_name": chat_name})
+
+# DARCIE ADDED THIS FUNCTION
+@app.route("/project/<project_id>/document/<doc_id>/tags", methods=["DELETE"])
+def delete_document_tag(project_id, doc_id):
+    """Delete a tag from a document"""
+    if "user_id" not in session:
+        return jsonify({"success": False, "error": "Unauthorized"}), 401
+
+    data = request.get_json()
+    if not data or "tag" not in data:
+        return jsonify({"success": False, "error": "Tag parameter required"}), 400
+
+    tag_label = data["tag"].strip()
+    if not tag_label:
+        return jsonify({"success": False, "error": "Tag cannot be empty"}), 400
+
+    conn = get_db()
+    cur = conn.cursor()
+
+    try:
+        # First, verify the document exists and belongs to the project
+        cur.execute("""
+            SELECT d.doc_id
+            FROM Document d
+            JOIN Project_Document pd ON d.doc_id = pd.document_id
+            WHERE d.doc_id = ? AND pd.project_id = ?
+        """, (doc_id, project_id))
+
+        if not cur.fetchone():
+            return jsonify({"success": False, "error": "Document not found"}), 404
+
+        # Find the tag ID
+        cur.execute("SELECT tag_id FROM Tag WHERE label = ?", (tag_label,))
+        tag_row = cur.fetchone()
+
+        if not tag_row:
+            return jsonify({"success": False, "error": "Tag not found"}), 404
+
+        tag_id = tag_row[0]
+
+        # Delete the Document_Tag relationship
+        cur.execute("""
+            DELETE FROM Document_Tag
+            WHERE document_id = ? AND tag_id = ?
+        """, (doc_id, tag_id))
+
+        rows_affected = cur.rowcount
+
+        if rows_affected == 0:
+            return jsonify({"success": False, "error": "Tag was not associated with this document"}), 400
+
+        conn.commit()
+
+        return jsonify({
+            "success": True,
+            "message": f"Tag '{tag_label}' removed successfully"
+        })
+
+    except Exception as e:
+        conn.rollback()
+        print(f"Error deleting tag: {e}")
+        return jsonify({"success": False, "error": "Database error occurred"}), 500
+
+    finally:
+        cur.close()
+        conn.close()
+
+# DARCIE ADDED THIS FUNCTION!!!!!!
+@app.route("/project/<project_id>/document/<doc_id>/tags", methods=["POST"])
+def add_document_tag(project_id, doc_id):
+    """Add a tag to a document"""
+    if "user_id" not in session:
+        return jsonify({"success": False, "error": "Unauthorized"}), 401
+
+    data = request.get_json()
+    if not data or "tag" not in data:
+        return jsonify({"success": False, "error": "Tag parameter required"}), 400
+
+    tag_label = data["tag"].strip()
+    if not tag_label:
+        return jsonify({"success": False, "error": "Tag cannot be empty"}), 400
+
+    conn = get_db()
+    cur = conn.cursor()
+
+    try:
+        # Verify document exists and belongs to project
+        cur.execute("""
+            SELECT d.doc_id, d.title
+            FROM Document d
+            JOIN Project_Document pd ON d.doc_id = pd.document_id
+            WHERE d.doc_id = ? AND pd.project_id = ?
+        """, (doc_id, project_id))
+
+        document = cur.fetchone()
+        if not document:
+            return jsonify({"success": False, "error": "Document not found"}), 404
+
+        # Get or create the tag
+        tag_id = get_or_create_tag(cur, tag_label, "manual")
+
+        # Check if the tag is already associated with this document
+        cur.execute("""
+            SELECT COUNT(*)
+            FROM Document_Tag
+            WHERE document_id = ? AND tag_id = ?
+        """, (doc_id, tag_id))
+
+        if cur.fetchone()[0] > 0:
+            return jsonify({"success": False, "error": "Tag already exists for this document"}), 400
+
+        # Add the Document_Tag relationship
+        cur.execute("""
+            INSERT INTO Document_Tag (document_id, tag_id)
+            VALUES (?, ?)
+        """, (doc_id, tag_id))
+
+        conn.commit()
+
+        return jsonify({
+            "success": True,
+            "message": f"Tag '{tag_label}' added successfully",
+            "tag": tag_label
+        })
+
+    except Exception as e:
+        conn.rollback()
+        print(f"Error adding tag: {e}")
+        return jsonify({"success": False, "error": "Database error occurred"}), 500
+
+    finally:
+        cur.close()
+        conn.close()
 
 # ------------------ Main -----------------
 if __name__ == "__main__":
