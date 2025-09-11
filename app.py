@@ -578,6 +578,7 @@ def send_message(project_id, chat_id):
     conn.commit()
 
     # --- Build AI prompt from project documents ---
+
     cur.execute("""
         SELECT 
             d.title, 
@@ -597,24 +598,101 @@ def send_message(project_id, chat_id):
         tags_str = f" [tags: {d['tags']}]" if d['tags'] else ""
         context_parts.append(f"Document: {d['title']}{tags_str}\n{d.get('ocr_text','')}")
 
-    context = "\n\n".join(context_parts)
+    lvl1_context = "\n\n".join(context_parts)
 
     # --- Generate AI response ---
-    try:
-        prompt = f"""
-        You are assisting a user with project documents.
 
-        Project Documents:
-        {context}
+
+    try:
+
+        prompt1 = f"""
+
+        Please return only a list of document titles that are NOT relevant to the user's question seperated by commas and nothing else.
 
         User Question: {message}
+
+        Project Documents:
+
+        {lvl1_context}
+
         """
+
         model = genai.GenerativeModel("gemini-2.5-flash-lite")
-        response = model.generate_content(prompt)
-        reply = response.text.strip()
+
+        response = model.generate_content(prompt1)
+
+        lvl1_reply = response.text.strip()
+
+  
+  
+
+        lvl1_list = [name.strip() for name in lvl1_reply.split(',')]
+
+        deny_set = set(lvl1_list)
+
+  
+  
+
     except Exception as e:
-        print("AI error:", e)
+
+        print("Chat error:", e)
+
         reply = "Sorry, I had trouble generating a response."
+
+  
+  
+  
+
+    lvl3_info_parts = []
+
+    for d in docs:
+
+        if d['title'] in deny_set:
+
+            continue
+
+        lvl3_info_parts.append(f"Document: {d['title']}\n{d.get('ocr_text','')[:1000]}")
+
+    lvl3_context = "\n\n".join(lvl3_info_parts)
+
+  
+  
+
+    try:
+
+        prompt = f"""
+
+        You are assisting a user with project documents.
+
+  
+
+        Project Documents:
+
+        {lvl3_context}
+
+  
+
+        User Question: {message}
+
+        """
+
+        model = genai.GenerativeModel("gemini-2.5-flash-lite")
+
+        response = model.generate_content(prompt)
+
+        reply = response.text.strip()
+
+    except Exception as e:
+
+        print("Chat error:", e)
+
+        reply = "Sorry, I had trouble generating a response."
+
+    reply = str(deny_set) + reply
+
+    return jsonify({"reply": reply})
+
+
 
     # --- Save AI response ---
     content_id_ai = str(uuid.uuid4())
