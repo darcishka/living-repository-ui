@@ -1,5 +1,6 @@
 <!doctype html>
 <html lang="en">
+
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -13,6 +14,7 @@
   <!-- Styles -->
   <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
 </head>
+
 <body>
 
   <!-- Header -->
@@ -60,7 +62,8 @@
         <div id="docList">
           {% for doc in documents %}
           <article class="doc-card" data-doc-id="{{ doc.doc_id }}">
-            <a href="{{ url_for('document_detail', project_id=project_id, doc_id=doc.doc_id) }}" style="display:block; text-decoration:none; color:inherit;">
+            <a href="{{ url_for('document_detail', project_id=project_id, doc_id=doc.doc_id) }}"
+              style="display:block; text-decoration:none; color:inherit;">
               <div class="doc-row">
                 <div class="doc-title">{{ doc.title }}</div>
                 <span class="badge
@@ -76,15 +79,19 @@
                 <span>Author: {{ doc.author or "Unknown" }}</span>
                 <span>Updated: {{ doc.upload_date }}</span>
               </div>
-
-              {% if doc.tags %}
-              <div class="doc-tags" style="margin-top:8px; display:flex; flex-wrap:wrap; gap:6px;">
-                {% for tag in doc.tags.split(",") %}
-                  <span class="badge badge-secondary">{{ tag.strip() }}</span>
-                {% endfor %}
-              </div>
-              {% endif %}
             </a>
+
+            <!-- DARCIE CHANGED THIS SECTION!!!!!!-->
+            {% if doc.tags %}
+            <div class="doc-tags" style="margin-top:8px; display:flex; flex-wrap:wrap; gap:6px; align-items: center;">
+              {% for tag in doc.tags.split(",") %}
+              <span class="badge badge-secondary" style="text-transform: capitalize">{{ tag.strip() }}</span>
+              {% endfor %}
+              <button class="btn edit-btn btn-outline" data-doc-id="{{ doc.doc_id }}"
+                style="margin-left: auto;">Edit</button>
+            </div>
+            {% endif %}
+
 
             {% if doc.status != 'Complete' %}
             <button class="btn btn-sm btn-primary process-btn" data-doc-id="{{ doc.doc_id }}">
@@ -146,7 +153,8 @@
       <!-- METADATA -->
       <section class="screen" data-screen="metadata">
         <h2 class="h2">Finalize Metadata</h2>
-        <div class="card" style="padding: var(--space-6); border-radius:16px; background:#fff; box-shadow:var(--shadow);">
+        <div class="card"
+          style="padding: var(--space-6); border-radius:16px; background:#fff; box-shadow:var(--shadow);">
           <div class="group-block">
             <div class="group-title">Tags</div>
             <div class="chip-board" id="finalTags"></div>
@@ -201,7 +209,7 @@
       steps.forEach(step => {
         const active = step.dataset.step === screenName;
         step.classList.toggle('active', active);
-        if(active) step.setAttribute('aria-current','page');
+        if (active) step.setAttribute('aria-current', 'page');
         else step.removeAttribute('aria-current');
       });
     }
@@ -216,16 +224,16 @@
     // File input
     browseBtn.addEventListener('click', () => fileInput.click());
     fileInput.addEventListener('change', () => {
-      if(fileInput.files.length > 0){
+      if (fileInput.files.length > 0) {
         filePicked.hidden = false;
         filePicked.textContent = `Selected file: ${fileInput.files[0].name}`;
       } else { filePicked.hidden = true; }
     });
 
     // Process buttons
-    function attachProcessButtons(){
+    function attachProcessButtons() {
       document.querySelectorAll('.process-btn').forEach(btn => {
-        if(btn.dataset.bound) return;
+        if (btn.dataset.bound) return;
         btn.dataset.bound = true;
         btn.addEventListener('click', e => {
           e.stopPropagation(); // don't trigger card link
@@ -233,7 +241,7 @@
           fetch(`/project/${PROJECT_ID}/document/${docId}/process`, { method: 'POST' })
             .then(res => res.json())
             .then(data => {
-              if(data.success){
+              if (data.success) {
                 const card = btn.closest('.doc-card');
                 const badge = card.querySelector('.status-badge');
                 badge.textContent = 'Complete';
@@ -255,7 +263,7 @@
       fetch(`/project/${PROJECT_ID}/upload`, { method: 'POST', body: formData })
         .then(res => res.json())
         .then(data => {
-          if(data.success){
+          if (data.success) {
             const article = document.createElement('article');
             article.className = 'doc-card';
             article.innerHTML = `
@@ -277,6 +285,319 @@
           } else alert('Upload failed');
         }).catch(console.error);
     });
+
+    // DARCIE ADDED CODE FROM HERE ONWARDS!!!!!!
+    //Edit function
+    document.addEventListener('click', function (e) {
+      // Handle Edit button clicks
+      if (e.target && e.target.classList.contains('edit-btn')) {
+        e.preventDefault();
+        const docId = e.target.getAttribute('data-doc-id');
+        const docCard = e.target.closest('.doc-card');
+
+        console.log('Edit button clicked for document:', docId);
+
+        // Toggle edit mode
+        toggleEditMode(docCard, e.target);
+      }
+
+      // Handle tag delete button clicks
+      if (e.target && e.target.classList.contains('tag-delete-btn')) {
+        e.preventDefault();
+        const docId = e.target.getAttribute('data-doc-id');
+        const tagText = e.target.getAttribute('data-tag');
+
+        console.log('Deleting tag:', tagText, 'from document:', docId);
+
+        // Remove the tag from the DOM
+        deleteTagFromDatabase(docId, tagText, e.target);
+      }
+
+      // Handle add tag button clicks
+      if (e.target && e.target.classList.contains('add-tag-btn')) {
+        e.preventDefault();
+        const docId = e.target.getAttribute('data-doc-id');
+        const docCard = e.target.closest('.doc-card');
+
+        console.log('Add tag button clicked for document:', docId);
+
+        showAddTagInput(docCard, docId);
+      }
+    });
+
+    function toggleEditMode(docCard, editBtn) {
+      const isEditMode = docCard.classList.contains('edit-mode');
+
+      if (isEditMode) {
+        // Exit edit mode
+        exitEditMode(docCard, editBtn);
+      } else {
+        // Enter edit mode
+        enterEditMode(docCard, editBtn);
+      }
+    }
+
+    function enterEditMode(docCard, editBtn) {
+      // Add edit-mode class to the card
+      docCard.classList.add('edit-mode');
+
+      // Change button text to "Save"
+      editBtn.textContent = 'Save';
+      editBtn.classList.add('btn-success');
+
+      const docId = docCard.getAttribute('data-doc-id');
+      const docTagsContainer = docCard.querySelector('.doc-tags');
+
+      // Find all tag badges in this card
+      const tagBadges = docCard.querySelectorAll('.doc-tags .badge:not(.status-badge)');
+
+      tagBadges.forEach(badge => {
+        // Skip if delete button already exists
+        if (badge.querySelector('.tag-delete-btn')) return;
+
+        const tagText = badge.textContent.trim();
+
+        // Create delete button
+        const deleteBtn = document.createElement('span');
+        deleteBtn.className = 'tag-delete-btn';
+        deleteBtn.innerHTML = 'X';
+        deleteBtn.setAttribute('data-doc-id', docId);
+        deleteBtn.setAttribute('data-tag', tagText);
+        deleteBtn.title = 'Delete tag';
+
+        // Add hover effect
+        badge.addEventListener('mouseenter', () => {
+          if (!deleteBtn.matches(':hover')) {
+            deleteBtn.style.color = 'white';
+          }
+        });
+
+        badge.addEventListener('mouseleave', () => {
+          if (!deleteBtn.matches(':hover')) {
+            deleteBtn.style.color = '#000000';
+          }
+        });
+
+        // Delete button specific hover - X becomes RED only
+        deleteBtn.addEventListener('mouseenter', () => {
+          deleteBtn.style.color = '#ef4444'; // Red color only
+        });
+
+        deleteBtn.addEventListener('mouseleave', () => {
+          // Check if the badge is still being hovered
+          const badgeHovered = badge.matches(':hover');
+
+          if (badgeHovered) {
+            deleteBtn.style.setProperty('color', 'white');
+          } else {
+            deleteBtn.style.setProperty('color', '#000000');
+          }
+        });
+
+        // Append delete button to the badge
+        badge.appendChild(deleteBtn);
+      });
+
+      // Add "+" button for adding new tags
+      if (!docCard.querySelector('.add-tag-btn')) {
+        const addTagBtn = document.createElement('button');
+        addTagBtn.className = 'btn add-tag-btn';
+        addTagBtn.innerHTML = '+';
+        addTagBtn.setAttribute('data-doc-id', docId);
+        addTagBtn.title = 'Add new tag';
+
+        editBtn.parentNode.insertBefore(addTagBtn, editBtn);
+      }
+
+    }
+
+    function exitEditMode(docCard, editBtn) {
+      // Remove edit-mode class
+      docCard.classList.remove('edit-mode');
+
+      // Change button back to "Edit"
+      editBtn.textContent = 'Edit';
+      editBtn.classList.remove('btn-success');
+
+      // Remove all delete buttons
+      const deleteButtons = docCard.querySelectorAll('.tag-delete-btn');
+      deleteButtons.forEach(btn => btn.remove());
+
+      // Remove add tag button
+      const addTagBtn = docCard.querySelector('.add-tag-btn');
+      if(addTagBtn) {
+        addTagBtn.remove();
+      }
+
+      // Remove add tage input container if it exists
+      const addTagInput = docCard.querySelector('.add-tag-input-container');
+      if (addTagInput) {
+        addTagInput.remove();
+      }
+    }
+
+    function showAddTagInput(docCard, docId) {
+      if (docCard.querySelector('.add-tag-input-container')) {
+        return;
+      }
+
+      const docTagsContainer = docCard.querySelector('.doc-tags');
+      const addTagBtn = docCard.querySelector('.add-tag-btn');
+
+      // Create input container
+      const inputContainer = document.createElement('div');
+      inputContainer.className = 'add-tag-input-container';
+
+      // Create input field
+      const tagInput = document.createElement('input');
+      tagInput.type = 'text';
+      tagInput.placeholder = 'Enter new tag...';
+
+      // Create confirm button
+      const confirmBtn = document.createElement('button');
+      confirmBtn.className = 'confirm-btn';
+      confirmBtn.textContent = '✓';
+      confirmBtn.title = 'Add tag';
+
+      // Append elements to container
+      inputContainer.appendChild(tagInput);
+      inputContainer.appendChild(confirmBtn);
+
+      // Insert container after the doc-tags div
+      docTagsContainer.parentNode.insertBefore(inputContainer, docTagsContainer.nextSibling);
+
+      // Focus the input
+      tagInput.focus();
+
+      //Handle confirm button click
+      confirmBtn.addEventListener('click', () => {
+        const tagText = tagInput.value.trim();
+        if (tagText) {
+          addTagToDatabase(docId, tagText, docCard, inputContainer);
+        }
+      });
+
+      //Handle Enter key input
+      tagInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+          const tagText = tagInput.value.trim();
+          if (tagText) {
+            addTagToDatabase(docId, tagText, docCard, inputContainer);
+          }
+        }
+      });
+    }
+
+    // Function to add tag to database
+    async function addTagToDatabase(docId, tagText, docCard, inputContainer) {
+      try {
+        const response = await fetch(`/project/${PROJECT_ID}/document/${docId}/tags`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            tag: tagText
+          })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+          // Create new tag badge
+          const newTagBadge = document.createElement('span');
+          newTagBadge.className = 'badge badge-secondary';
+          newTagBadge.textContent = tagText;
+
+          // Add delete button to new tag, per edit mode
+          const deleteBtn = document.createElement('span');
+          deleteBtn.className = 'tag-delete-btn';
+          deleteBtn.innerHTML = 'X';
+          deleteBtn.setAttribute('data-doc-id', docId);
+          deleteBtn.setAttribute('data-tag', tagText);
+          deleteBtn.title = 'Delete tag';
+
+          // Add hover effects
+          newTagBadge.addEventListener('mouseenter', () => {
+            if (!deleteBtn.matches(':hover')) {
+              deleteBtn.style.color = 'white';
+            }
+          });
+
+          newTagBadge.addEventListener('mouseleave', () => {
+            if (!deleteBtn.matches(':hover')) {
+              deleteBtn.style.color = '#000000';
+            }
+          });
+
+          deleteBtn.addEventListener('mouseenter', () => {
+            deleteBtn.style.color = '#ef4444';
+          });
+
+          deleteBtn.addEventListener('mouseleave', () => {
+            const badgeHovered = newTagBadge.matches(':hover');
+            if (badgeHovered) {
+              deleteBtn.style.setProperty('color', 'white');
+            } else {
+              deleteBtn.style.setProperty('color', '#000000');
+            }
+          });
+
+          newTagBadge.appendChild(deleteBtn);
+
+          //Insert new tag in the tags container
+          const docTagsContainer = docCard.querySelector('.doc-tags');
+          docTagsContainer.insertBefore(newTagBadge, docTagsContainer.firstChild);
+
+          // Remove the input container
+          inputContainer.remove();
+
+          console.log(`Successfully added tag: ${tagText}`);
+        } else {
+          console.error('Failed to add tag:', result.error);
+          alert(`Error: ${result.error}`);
+        }
+
+      } catch (error) {
+        console.error('Network error adding tag:', error);
+        alert('Network error - tag not added');
+      }
+    }
+
+    // Function to delete tag from database
+    async function deleteTagFromDatabase(docId, tagText, deleteButton) {
+      try {
+        const response = await fetch(`/project/${PROJECT_ID}/document/${docId}/tags`, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+
+          body: JSON.stringify({
+            tag: tagText
+          })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+          const tagBadge = deleteButton.closest('.badge');
+          if (tagBadge) {
+            tagBadge.remove();
+          }
+          console.log(`Successfully deleted tag: ${tagText}`);
+        } else {
+          console.error('Failed to delete tag:', result.error);
+          alert(`Error: ${result.error}`);
+        }
+
+      } catch (error) {
+        console.error('Network error deleting tag:', error);
+        alert('Network error - tag not deleted');
+      }
+    }
+
   </script>
 </body>
+
 </html>
