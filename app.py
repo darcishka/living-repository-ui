@@ -11,6 +11,9 @@ import fitz
 from docx import Document as DocxDocument
 import google.generativeai as genai
 import re
+import openpyxl
+import xlrd
+
 
 # ------------------ App Setup -----------------------
 app = Flask(__name__)
@@ -92,6 +95,23 @@ def extract_pdf_text(path):
     for page in pdf:
         text += page.get_text()
     pdf.close()
+    return text
+
+def extract_excel_text(path):
+    ext = path.split(".")[-1].lower()
+    text = ""
+    if ext == "xlsx":
+        wb = openpyxl.load_workbook(path, read_only=True)
+        for sheet in wb.worksheets:
+            for row in sheet.iter_rows(values_only=True):
+                text += " ".join([str(cell) for cell in row if cell is not None]) + "\n"
+        wb.close()
+    elif ext == "xls":
+        wb = xlrd.open_workbook(path)
+        for sheet in wb.sheets():
+            for row_idx in range(sheet.nrows):
+                row = sheet.row_values(row_idx)
+                text += " ".join([str(cell) for cell in row if cell]) + "\n"
     return text
 
 # ------------------ Routes -----------------------
@@ -355,7 +375,6 @@ def process_document(project_id, doc_id):
         cur.close()
         conn.close()
 
-# ------------------ Document Upload -----------------
 @app.route("/project/<project_id>/upload", methods=["POST"])
 def project_upload(project_id):
     if "user_id" not in session:
@@ -364,7 +383,14 @@ def project_upload(project_id):
     file = request.files["file"]
     title = request.form["title"]
     description = request.form.get("description")
-    privacy = request.form["privacy"]
+    privacy_raw = request.form.get("privacy", "").strip().lower()
+    PRIVACY_MAP = {
+        "confidential": "private",
+        "private": "private",
+        "public": "public",
+        "internal": "internal",
+    }
+    privacy = PRIVACY_MAP.get(privacy_raw, "internal")
     user_id = session["user_id"]
 
     filename = secure_filename(file.filename)
@@ -378,6 +404,9 @@ def project_upload(project_id):
     elif ext in ["doc", "docx"]:
         doc_type = "word"
         ocr_text = extract_word_text(path)
+    elif ext in ["xls", "xlsx"]:
+        doc_type = "other"
+        ocr_text = extract_excel_text(path)
     elif ext in ["jpg", "jpeg", "png", "tiff"]:
         doc_type = "image"
         ocr_text = pytesseract.image_to_string(Image.open(path))

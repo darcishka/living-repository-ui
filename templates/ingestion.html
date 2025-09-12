@@ -109,14 +109,15 @@
         <h2 class="h2">Upload Document</h2>
         <form id="uploadForm" enctype="multipart/form-data">
           <div id="dropzone" class="dropzone" tabindex="0">
-            <input id="fileInput" name="file" type="file" hidden />
+            <input id="fileInput" name="file" type="file"
+              accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.tiff" hidden />
             <div class="dropzone-inner">
               <div class="drop-illustration">⬆</div>
               <div class="drop-title">Drag & drop file here</div>
               <div class="drop-sub">
                 or <button id="browseBtn" type="button" class="btn btn-link">browse</button>
               </div>
-              <div class="drop-hint">PDF, DOCX, or image only. Max 25MB.</div>
+              <div class="drop-hint">PDF, DOCX, XLS/XLSX, or image. Max 25MB.</div>
               <div id="filePicked" class="drop-picked" hidden></div>
             </div>
           </div>
@@ -124,10 +125,11 @@
           <input id="docTitle" name="title" class="input" placeholder="Document title" required />
           <textarea id="docDescription" name="description" class="input" placeholder="Optional description"></textarea>
           <select id="docPrivacy" name="privacy" class="select" required>
-            <option value="internal" selected>Internal</option>
-            <option value="public">Public</option>
-            <option value="confidential">Confidential</option>
-          </select>
+          <option value="internal" selected>Internal</option>
+          <option value="public">Public</option>
+          <option value="private">Confidential</option>
+        </select>
+
 
           <div class="ingest-actions">
             <button class="btn btn-outline" id="backToDashboard" type="button">Back</button>
@@ -162,10 +164,10 @@
           <div class="group-block">
             <div class="group-title">Classification</div>
             <select id="classification" class="select">
-              <option value="public">Public</option>
-              <option value="internal" selected>Internal</option>
-              <option value="confidential">Confidential</option>
-            </select>
+            <option value="public">Public</option>
+            <option value="internal" selected>Internal</option>
+            <option value="private">Confidential</option>
+        </select>
           </div>
           <div class="group-block">
             <div class="group-title">Reviewer</div>

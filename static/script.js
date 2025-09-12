@@ -144,15 +144,21 @@ function toast(msg){
   const toTagsBtn = app.querySelector('#toTags');
   const skipUploadCk = app.querySelector('#skipUpload');
   const testNote = app.querySelector('#testNote');
+  fileInput?.setAttribute('accept', '.pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.tiff');
 
-  function validateFile(file) {
-    if (!file) return { ok: false, reason: 'No file selected' };
-    const extOk = /\.(pdf|docx)$/i.test(file.name);
-    const sizeOk = file.size <= 25 * 1024 * 1024; // 25MB
-    if (!extOk) return { ok: false, reason: 'PDF or DOCX only' };
-    if (!sizeOk) return { ok: false, reason: 'File too large (max 25MB)' };
-    return { ok: true };
+
+function validateFile(file) {
+  if (!file) return { ok: false, reason: 'No file selected' };
+  // Allow PDF, DOC/DOCX, XLS/XLSX, and common images
+  const extOk = /\.(pdf|doc|docx|xls|xlsx|jpg|jpeg|png|tiff)$/i.test(file.name);
+  const sizeOk = file.size <= 25 * 1024 * 1024; // 25MB
+  if (!extOk) {
+    return { ok: false, reason: 'PDF, DOC/DOCX, XLS/XLSX, or image only' };
   }
+  if (!sizeOk) return { ok: false, reason: 'File too large (max 25MB)' };
+  return { ok: true };
+}
+
   function setPickedText(text) {
     if (!filePicked) return;
     filePicked.hidden = false;
