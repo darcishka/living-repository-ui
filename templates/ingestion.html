@@ -203,6 +203,8 @@
     const browseBtn = document.getElementById('browseBtn');
     const filePicked = document.getElementById('filePicked');
     const uploadForm = document.getElementById('uploadForm');
+    const dropzone = document.getElementById('dropzone');
+    
 
     document.getElementById('year').textContent = new Date().getFullYear();
 
@@ -264,7 +266,7 @@
 
       fetch(`/project/${PROJECT_ID}/upload`, { method: 'POST', body: formData })
         .then(res => res.json())
-        .then(data => {
+        .then (data => {
           if (data.success) {
             const article = document.createElement('article');
             article.className = 'doc-card';
@@ -599,6 +601,53 @@
       }
     }
 
+    function validateFile(file) {
+      if (!file) return { ok: false, reason: 'No file selected' };
+      const extOk = /\.(pdf|doc|docx|xls|xlsx|jpg|jpeg|png|tiff)$/i.test(file.name);
+      const sizeOk = file.size <= 25 * 1024 * 1024; // 25MB
+      if (!extOk) return { ok: false, reason: 'PDF, DOC/DOCX, XLS/XLSX, or image only' };
+      if (!sizeOk) return { ok: false, reason: 'File too large (max 25MB)' };
+      return { ok: true };
+    }
+
+    function setPicked(file) {
+      if (!filePicked) return;
+      filePicked.hidden = false;
+      filePicked.textContent = `Selected file: ${file.name}`;
+    }
+
+    // Global drag & drop guard
+    // Prevent the browser from opening the file when it's dropped on the page.
+    ['dragenter','dragover'].forEach(evt => {
+      dropzone?.addEventListener(evt, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dropzone.classList.add('dragover');
+      });
+    });
+
+    ['dragleave','drop'].forEach(evt => {
+      dropzone?.addEventListener(evt, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dropzone.classList.remove('dragover');
+      });
+    });
+
+    dropzone?.addEventListener('drop', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dropzone.classList.remove('dragover');
+
+      const f = e.dataTransfer?.files?.[0];
+      if (!f) return;
+      const res = validateFile(f);
+      if (!res.ok) { alert(res.reason); return; }
+      const dt = new DataTransfer();
+      dt.items.add(f);
+      fileInput.files = dt.files;
+      setPicked(f);
+    });
   </script>
 </body>
 
