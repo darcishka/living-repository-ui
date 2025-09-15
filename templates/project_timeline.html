@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>{{ project_title }} - Timeline</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f5f5f5;
+      margin: 0;
+      padding: 0;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 40px auto;
+      padding: 20px;
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    h1.timeline-title {
+      font-size: 2em;
+      color: #333;
+      margin-bottom: 12px;
+    }
+
+
+    .timeline-container {
+      position: relative;
+      padding-left: 40px;
+      margin-top: 20px;
+    }
+
+    /* Vertical rail */
+    .timeline-container::before {
+      content: '';
+      position: absolute;
+      left: 20px;
+      top: 0;
+      bottom: 0;
+      width: 4px;
+      background: #ccc;
+    }
+
+    .timeline-item {
+      position: relative;
+      margin-bottom: 40px;
+      cursor: pointer;
+    }
+
+    /* Dot on the rail */
+    .timeline-item::before {
+      content: '';
+      position: absolute;
+      left: -28px;
+      top: 0;
+      width: 16px;
+      height: 16px;
+      background: #1890ff;
+      border-radius: 50%;
+      border: 3px solid #fff;
+      box-shadow: 0 0 0 2px #1890ff;
+    }
+
+    .timeline-item strong {
+      font-size: 1.1em;
+      color: #333;
+    }
+
+    .timeline-item div {
+      margin-top: 4px;
+      font-size: 0.95em;
+    }
+
+    .event-card {
+      background: #f9f9f9;
+      border-radius: 8px;
+      padding: 12px;
+      margin-top: 8px;
+      display: none;
+      font-size: 0.9em;
+      color: #555;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+    }
+
+    .timeline-item.event-open .event-card {
+      display: block;
+    }
+
+    @media (max-width: 600px) {
+      .container {
+        padding: 15px;
+      }
+
+      .timeline-container {
+        padding-left: 30px;
+      }
+
+      .timeline-item::before {
+        left: -24px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <nav class="nav" style="display:flex; justify-content:space-between; padding:var(--space-4); border-bottom:1px solid var(--border-color);">
+    <div class="logo h3">Living Repository</div>
+    <div>
+      <a href="{{ url_for('projects') }}" class="btn btn-link">My Projects</a>
+      <a href="{{ url_for('logout') }}" class="btn btn-link">Logout</a>
+    </div>
+  </nav>
+
+  <div class="container">
+    <h1 class="timeline-title">Timeline of {{ project_title }}</h1>
+    <a href="{{ url_for('project_detail', project_id=project_id) }}" class="btn-accent" style="margin-top: -5px;margin-left: 5px; display: inline-block;">Back to Project</a>
+
+    <div class="timeline-container">
+      {% if log_entries %}
+        {% for entry in log_entries %}
+        <div class="timeline-item">
+          <div><strong>{{ entry.user_name or "Unknown User" }}</strong></div>
+          <div>{{ entry.action }}{% if entry.object_type %} {{ entry.object_type }}{% endif %}</div>
+          {% if entry.object_name %}<div>"{{ entry.object_name }}"</div>{% endif %}
+          <div class="event-card">
+            <p><em>{{ entry.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</em></p>
+            {% if entry.object_id %}<p><strong>Object ID:</strong> {{ entry.object_id }}</p>{% endif %}
+            {% if entry.project_id %}<p><strong>Project ID:</strong> {{ entry.project_id }}</p>{% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      {% else %}
+        <p>No activity yet for this project.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <footer style="text-align:center; padding:var(--space-8); border-top:1px solid var(--border-color); margin-top:var(--space-16);">
+    <p class="muted text-sm">&copy; {{ current_year }} Living Repository</p>
+  </footer>
+
+  <script>
+    document.querySelectorAll('.timeline-item').forEach(event => {
+      event.addEventListener('click', () => {
+        event.classList.toggle('event-open');
+      });
+    });
+  </script>
+</body>
+</html>

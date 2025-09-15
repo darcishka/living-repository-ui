@@ -28,6 +28,7 @@
 
       <div style="display:flex; gap:var(--space-4); margin-top:12px;">
         <a href="{{ url_for('ingestion', project_id=project_id) }}" class="btn btn-primary">Go to Ingestion</a>
+        <a href="{{ url_for('project_timeline', project_id=project_id) }}" class="btn btn-accent">View Timeline</a>
         <a href="{{ url_for('projects') }}" class="btn btn-secondary">Back to Projects</a>
       </div>
     </div>

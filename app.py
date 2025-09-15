@@ -114,6 +114,33 @@ def extract_excel_text(path):
                 text += " ".join([str(cell) for cell in row if cell]) + "\n"
     return text
 
+def log_event(user_id, project_id, action, object_type=None, object_id=None, object_name=None):
+    """
+    Insert an event into Audit_Log for tracking user/project activity.
+
+    Args:
+        user_id (str): The ID of the user performing the action.
+        project_id (str): The project where the action occurred.
+        action (str): The action performed ('create','update','delete','login','logout').
+        object_type (str, optional): The type of object ('project','document','chat','link','file').
+        object_id (str, optional): The ID of the object interacted with.
+        object_name (str, optional): A friendly name for the object (e.g., filename).
+    """
+    conn = get_db()
+    cur = conn.cursor()
+
+    log_id = str(uuid.uuid4())
+    timestamp = datetime.datetime.now(datetime.timezone.utc)
+
+    cur.execute("""
+        INSERT INTO Audit_Log (log_id, user_id, project_id, action, object_type, object_id, object_name, [timestamp])
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    """, (log_id, user_id, project_id, action, object_type, object_id, object_name, timestamp))
+
+    conn.commit()
+    cur.close()
+    conn.close()
+
 # ------------------ Routes -----------------------
 @app.route("/")
 def index():
@@ -123,6 +150,11 @@ def index():
 
 @app.route("/logout")
 def logout():
+    if "user_id" in session:
+        user_id = session["user_id"]
+        # Log logout event
+        log_event(user_id, None, action="logout")
+
     session.clear()
     return redirect(url_for("index"))
 
@@ -149,6 +181,10 @@ def login():
     if bcrypt.checkpw(password.encode("utf-8"), hashed.encode("utf-8")):
         session["user_id"] = user_id
         session["name"] = name
+
+        # Log login event
+        log_event(user_id, None, action="login")
+
         return redirect(url_for("dashboard"))
     else:
         return "Invalid email or password"
@@ -175,13 +211,19 @@ def signup():
     if exists > 0:
         return "Email already taken"
 
-    cur.execute("INSERT INTO [User] (user_id, name, email, role, password_hash) VALUES (?, ?, ?, ?, ?)",
-                (user_id, name, email, role, hashed.decode("utf-8")))
+    cur.execute(
+        "INSERT INTO [User] (user_id, name, email, role, password_hash) VALUES (?, ?, ?, ?, ?)",
+        (user_id, name, email, role, hashed.decode("utf-8"))
+    )
     conn.commit()
     cur.close()
     conn.close()
 
+    # Log signup event
+    log_event(user_id, None, action="create", object_type="user", object_id=user_id, object_name=name)
+
     return "Account created successfully! <a href='/login'>Login here</a>"
+
 
 @app.route("/dashboard")
 def dashboard():
@@ -229,7 +271,19 @@ def create_project():
     conn.commit()
     cur.close()
     conn.close()
+
+    # Log project creation
+    log_event(
+        user_id=session["user_id"],
+        project_id=project_id,
+        action="create",
+        object_type="project",
+        object_id=project_id,
+        object_name=title
+    )
+
     return redirect(url_for("projects"))
+
 
 @app.route("/project/<project_id>", methods=["GET", "POST"])
 def project_detail(project_id):
@@ -255,11 +309,27 @@ def project_detail(project_id):
                 conn.close()
                 return "You do not have permission to delete this project.", 403
 
-            # Delete the project (cascades to Project_Document, etc.)
+            # Get project title before deletion
+            cur.execute("SELECT title FROM Project WHERE project_id=?", (project_id,))
+            row = cur.fetchone()
+            project_title = row[0] if row else None
+
+            # Delete the project
             cur.execute("DELETE FROM Project WHERE project_id=?", (project_id,))
             conn.commit()
             cur.close()
             conn.close()
+
+            # Log project deletion
+            log_event(
+                user_id=user_id,
+                project_id=project_id,
+                action="delete",
+                object_type="project",
+                object_id=project_id,
+                object_name=project_title
+            )
+
             return redirect(url_for("projects"))
 
     # Fetch project info
@@ -294,6 +364,7 @@ def project_detail(project_id):
         current_year=datetime.datetime.now().year
     )
 
+
 @app.route("/project/<project_id>/share", methods=["POST"])
 def share_project(project_id):
     if "user_id" not in session:
@@ -327,7 +398,16 @@ def share_project(project_id):
     cur.close()
     conn.close()
 
-    # Use the correct endpoint name here
+    # Log project sharing
+    log_event(
+        user_id=session["user_id"],
+        project_id=project_id,
+        action="create",
+        object_type="share_link",
+        object_id=link_id,
+        object_name=f"{permissions} link"
+    )
+
     share_url = url_for("access_shared_project", link_id=link_id, _external=True)
 
     return jsonify({
@@ -335,7 +415,6 @@ def share_project(project_id):
         "expires": expiry_date.isoformat(),
         "permissions": permissions
     })
-
 
 @app.route("/share/<link_id>")
 def access_shared_project(link_id):
@@ -442,16 +521,17 @@ def process_document(project_id, doc_id):
     if "user_id" not in session:
         return jsonify({"success": False, "error": "Unauthorized"}), 401
 
+    user_id = session["user_id"]
     conn = get_db()
     cur = conn.cursor()
 
     try:
         # fetch document
-        cur.execute("SELECT ocr_text FROM Document WHERE doc_id = ?", (doc_id,))
+        cur.execute("SELECT title, ocr_text FROM Document WHERE doc_id = ?", (doc_id,))
         row = cur.fetchone()
-        if not row or not row[0]:
+        if not row or not row[1]:
             return jsonify({"success": False, "error": "Document has no text"}), 400
-        doc_text = row[0]
+        doc_title, doc_text = row
 
         # fetch project
         cur.execute("SELECT title, description FROM Project WHERE project_id = ?", (project_id,))
@@ -487,6 +567,17 @@ def process_document(project_id, doc_id):
             ("Complete", doc_id)
         )
         conn.commit()
+
+        #Log the event
+        log_event(
+            user_id=user_id,
+            project_id=project_id,
+            action="update",
+            object_type="document",
+            object_id=doc_id,
+            object_name=doc_title
+        )
+
         return jsonify({"success": True, "summary": summary})
 
     except Exception as e:
@@ -497,6 +588,7 @@ def process_document(project_id, doc_id):
     finally:
         cur.close()
         conn.close()
+
 
 @app.route("/project/<project_id>/upload", methods=["POST"])
 def project_upload(project_id):
@@ -554,6 +646,15 @@ def project_upload(project_id):
         tag_id = get_or_create_tag(cur, tag)
         cur.execute("INSERT INTO Document_Tag (document_id, tag_id) VALUES (?, ?)", (doc_id, tag_id))
 
+    #log the event
+    log_event(
+    user_id=session["user_id"],
+    project_id=project_id,
+    action="create",
+    object_type="Document",
+    object_id=doc_id,
+    object_name=title)
+
     conn.commit()
     cur.close()
     conn.close()
@@ -565,14 +666,31 @@ def document_detail(project_id, doc_id):
     if "user_id" not in session:
         return redirect(url_for("login"))
 
+    user_id = session["user_id"]
     conn = get_db()
     cur = conn.cursor()
 
     if request.method == "POST":
         if "delete" in request.form:
-            # find project_id (redundant here since we already have it)
+            # Fetch document info for logging
+            cur.execute("SELECT title FROM Document WHERE doc_id=?", (doc_id,))
+            doc_row = cur.fetchone()
+            doc_title = doc_row[0] if doc_row else None
+
+            # Delete document
             cur.execute("DELETE FROM Document WHERE doc_id=?", (doc_id,))
             conn.commit()
+
+            # Log the deletion
+            log_event(
+                user_id=user_id,
+                project_id=project_id,
+                action="delete",
+                object_type="document",
+                object_id=doc_id,
+                object_name=doc_title
+            )
+
             cur.close()
             conn.close()
             return redirect(url_for("project_detail", project_id=project_id))
@@ -601,6 +719,7 @@ def document_detail(project_id, doc_id):
     return render_template("document_detail.html",
                            document=document,
                            project_id=project_id)
+
 
 @app.route("/project/<project_id>/chats")
 def project_chats(project_id):
@@ -824,6 +943,7 @@ def delete_document_tag(project_id, doc_id):
     if "user_id" not in session:
         return jsonify({"success": False, "error": "Unauthorized"}), 401
 
+    user_id = session["user_id"]
     data = request.get_json()
     if not data or "tag" not in data:
         return jsonify({"success": False, "error": "Tag parameter required"}), 400
@@ -836,7 +956,7 @@ def delete_document_tag(project_id, doc_id):
     cur = conn.cursor()
 
     try:
-        # First, verify the document exists and belongs to the project
+        # Verify the document exists and belongs to the project
         cur.execute("""
             SELECT d.doc_id
             FROM Document d
@@ -868,6 +988,16 @@ def delete_document_tag(project_id, doc_id):
             return jsonify({"success": False, "error": "Tag was not associated with this document"}), 400
 
         conn.commit()
+
+        # Log the tag deletion
+        log_event(
+            user_id=user_id,
+            project_id=project_id,
+            action="delete",
+            object_type="tag",
+            object_id=tag_id,
+            object_name=tag_label
+        )
 
         return jsonify({
             "success": True,
@@ -935,6 +1065,16 @@ def add_document_tag(project_id, doc_id):
 
         conn.commit()
 
+        # Log the event
+        log_event(
+            user_id=session["user_id"],
+            project_id=project_id,
+            action="update",                
+            object_type="tag",
+            object_id=tag_id,
+            object_name=tag_label
+        )
+
         return jsonify({
             "success": True,
             "message": f"Tag '{tag_label}' added successfully",
@@ -949,6 +1089,47 @@ def add_document_tag(project_id, doc_id):
     finally:
         cur.close()
         conn.close()
+
+@app.route("/project/<project_id>/timeline")
+def project_timeline(project_id):
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
+    conn = get_db()
+    cur = conn.cursor()
+
+    # Fetch project info
+    cur.execute("SELECT title FROM Project WHERE project_id=?", (project_id,))
+    row = cur.fetchone()
+    if not row:
+        cur.close()
+        conn.close()
+        return "Project not found", 404
+
+    project_title = row[0]
+
+    # Fetch audit log entries for this project, ordered newest first
+    cur.execute("""
+        SELECT al.[timestamp], al.action, al.object_type, al.object_name, u.name as user_name
+        FROM Audit_Log al
+        LEFT JOIN [User] u ON al.user_id = u.user_id
+        WHERE al.project_id=?
+        ORDER BY al.[timestamp] DESC
+    """, (project_id,))
+
+    log_entries = [dict(zip([column[0] for column in cur.description], row)) for row in cur.fetchall()]
+
+    cur.close()
+    conn.close()
+
+    return render_template(
+        "project_timeline.html",
+        project_id=project_id,
+        project_title=project_title,
+        log_entries=log_entries,
+        current_year=datetime.datetime.now().year
+    )
+
 
 # ------------------ Main -----------------
 if __name__ == "__main__":
