@@ -669,12 +669,6 @@ def send_message(project_id, chat_id):
 
         reply = "Sorry, I had trouble generating a response."
 
-    #reply = str(deny_set) + reply
-
-    return jsonify({"reply": reply})
-
-
-
     # --- Save AI response ---
     content_id_ai = str(uuid.uuid4())
     cur.execute("""
