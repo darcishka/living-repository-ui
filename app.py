@@ -1,7 +1,7 @@
 import os
 import uuid
 import datetime
-from flask import Flask, render_template, request, redirect, url_for, session, jsonify
+from flask import Flask, render_template, request, redirect, url_for, session, jsonify, flash
 from werkzeug.utils import secure_filename
 import pyodbc
 import bcrypt
@@ -231,24 +231,47 @@ def create_project():
     conn.close()
     return redirect(url_for("projects"))
 
-@app.route("/project/<project_id>")
+@app.route("/project/<project_id>", methods=["GET", "POST"])
 def project_detail(project_id):
     if "user_id" not in session:
         return redirect(url_for("login"))
 
+    user_id = session["user_id"]
     conn = get_db()
     cur = conn.cursor()
 
+    # Handle project deletion
+    if request.method == "POST":
+        confirm_delete = request.form.get("confirm_delete")
+        if confirm_delete == "yes":
+            # Optional: check if user has 'admin' permission for this project
+            cur.execute("""
+                SELECT permission FROM User_Project
+                WHERE user_id=? AND project_id=?
+            """, (user_id, project_id))
+            perm_row = cur.fetchone()
+            if not perm_row or perm_row[0] != "admin":
+                cur.close()
+                conn.close()
+                return "You do not have permission to delete this project.", 403
+
+            # Delete the project (cascades to Project_Document, etc.)
+            cur.execute("DELETE FROM Project WHERE project_id=?", (project_id,))
+            conn.commit()
+            cur.close()
+            conn.close()
+            return redirect(url_for("projects"))
+
     # Fetch project info
     cur.execute("SELECT title, description FROM Project WHERE project_id=?", (project_id,))
-    project = cur.fetchone()
-    if not project:
+    project_row = cur.fetchone()
+    if not project_row:
         cur.close()
         conn.close()
-        return "Project not found"
+        return "Project not found", 404
 
     columns = [column[0] for column in cur.description]
-    project = dict(zip(columns, project))
+    project = dict(zip(columns, project_row))
 
     # Fetch documents
     cur.execute("""
@@ -262,12 +285,112 @@ def project_detail(project_id):
     cur.close()
     conn.close()
 
-    return render_template("project_detail.html",
-                           project_id=project_id,
-                           project_title=project["title"],
-                           project_description=project["description"],
-                           documents=documents,
-                           current_year=datetime.datetime.now().year)
+    return render_template(
+        "project_detail.html",
+        project_id=project_id,
+        project_title=project["title"],
+        project_description=project["description"],
+        documents=documents,
+        current_year=datetime.datetime.now().year
+    )
+
+@app.route("/project/<project_id>/share", methods=["POST"])
+def share_project(project_id):
+    if "user_id" not in session:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    # Read JSON instead of form
+    data = request.get_json() or {}
+    permissions = data.get("permissions")
+    expiry_str = data.get("expiry")
+
+    if not permissions or not expiry_str:
+        return jsonify({"error": "Permissions and expiry date are required"}), 400
+
+    try:
+        # Parse expiry date (set to end of day)
+        expiry_date = datetime.datetime.strptime(expiry_str, "%Y-%m-%d")
+        expiry_date = expiry_date.replace(hour=23, minute=59, second=59, tzinfo=datetime.timezone.utc)
+    except Exception as e:
+        return jsonify({"error": "Invalid expiry date"}), 400
+
+    link_id = str(uuid.uuid4())
+    created_at = datetime.datetime.now(datetime.timezone.utc)
+
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("""
+        INSERT INTO Project_Link (link_id, project_id, permissions, expiry_date, created_at)
+        VALUES (?, ?, ?, ?, ?)
+    """, (link_id, project_id, permissions, expiry_date, created_at))
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    # Use the correct endpoint name here
+    share_url = url_for("access_shared_project", link_id=link_id, _external=True)
+
+    return jsonify({
+        "share_url": share_url,
+        "expires": expiry_date.isoformat(),
+        "permissions": permissions
+    })
+
+
+@app.route("/share/<link_id>")
+def access_shared_project(link_id):
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
+    user_id = session["user_id"]
+    conn = get_db()
+    cur = conn.cursor()
+
+    # Lookup link with permissions
+    cur.execute("""
+        SELECT project_id, expiry_date, permissions
+        FROM Project_Link
+        WHERE link_id=?
+    """, (link_id,))
+    row = cur.fetchone()
+
+    if not row:
+        cur.close()
+        conn.close()
+        return "Invalid or expired link.", 404
+
+    project_id, expiry_date, permissions = row
+
+    # Ensure expiry_date is timezone-aware
+    if expiry_date.tzinfo is None:
+        expiry_date = expiry_date.replace(tzinfo=datetime.timezone.utc)
+
+    if datetime.datetime.now(datetime.timezone.utc) > expiry_date:
+        # Delete expired link
+        cur.execute("DELETE FROM Project_Link WHERE link_id=?", (link_id,))
+        conn.commit()
+        cur.close()
+        conn.close()
+        return "This link has expired.", 403
+
+    # Check if user already has access
+    cur.execute("""
+        SELECT 1 FROM User_Project WHERE user_id=? AND project_id=?
+    """, (user_id, project_id))
+    exists = cur.fetchone()
+
+    if not exists:
+        join_date = datetime.datetime.now(datetime.timezone.utc)
+        cur.execute("""
+            INSERT INTO User_Project (user_id, project_id, permission, join_date)
+            VALUES (?, ?, ?, ?)
+        """, (user_id, project_id, permissions, join_date))
+        conn.commit()
+
+    cur.close()
+    conn.close()
+
+    return redirect(url_for("project_detail", project_id=project_id))
 
 @app.route("/project/<project_id>/ingestion")
 def ingestion(project_id):
@@ -582,8 +705,6 @@ def send_message(project_id, chat_id):
     lvl1_context = "\n\n".join(context_parts)
 
     # --- Generate AI response ---
-
-
     try:
 
         prompt1 = f"""
@@ -611,18 +732,12 @@ def send_message(project_id, chat_id):
 
         deny_set = set(lvl1_list)
 
-  
-  
-
     except Exception as e:
 
         print("Chat error:", e)
 
         reply = "Sorry, I had trouble generating a response."
 
-  
-  
-  
 
     lvl3_info_parts = []
 
@@ -635,9 +750,6 @@ def send_message(project_id, chat_id):
         lvl3_info_parts.append(f"Document: {d['title']}\n{d.get('ocr_text','')[:1000]}")
 
     lvl3_context = "\n\n".join(lvl3_info_parts)
-
-  
-  
 
     try:
 
