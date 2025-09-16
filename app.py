@@ -598,14 +598,7 @@ def project_upload(project_id):
     file = request.files["file"]
     title = request.form["title"]
     description = request.form.get("description")
-    privacy_raw = request.form.get("privacy", "").strip().lower()
-    PRIVACY_MAP = {
-        "confidential": "private",
-        "private": "private",
-        "public": "public",
-        "internal": "internal",
-    }
-    privacy = PRIVACY_MAP.get(privacy_raw, "internal")
+    privacy = request.form.get("privacy", "").strip().lower()
     user_id = session["user_id"]
 
     filename = secure_filename(file.filename)
@@ -1090,6 +1083,8 @@ def add_document_tag(project_id, doc_id):
         cur.close()
         conn.close()
 
+import datetime
+
 @app.route("/project/<project_id>/timeline")
 def project_timeline(project_id):
     if "user_id" not in session:
@@ -1117,7 +1112,24 @@ def project_timeline(project_id):
         ORDER BY al.[timestamp] DESC
     """, (project_id,))
 
-    log_entries = [dict(zip([column[0] for column in cur.description], row)) for row in cur.fetchall()]
+    log_entries = []
+    columns = [column[0] for column in cur.description]
+
+    # Fixed offset for AEST (UTC+10)
+    offset = datetime.timedelta(hours=10)
+
+    for row in cur.fetchall():
+        entry = dict(zip(columns, row))
+
+        # Append "d" to action
+        if entry.get("action"):
+            entry["action"] = entry["action"] + "d"
+
+        # Convert timestamp from UTC → AEST (+10h)
+        if entry.get("timestamp"):
+            entry["timestamp"] = entry["timestamp"] + offset
+
+        log_entries.append(entry)
 
     cur.close()
     conn.close()
@@ -1129,6 +1141,8 @@ def project_timeline(project_id):
         log_entries=log_entries,
         current_year=datetime.datetime.now().year
     )
+
+
 
 
 # ------------------ Main -----------------

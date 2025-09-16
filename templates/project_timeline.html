@@ -116,8 +116,9 @@
   </nav>
 
   <div class="container">
+    <a href="{{ url_for('project_detail', project_id=project_id) }}" class="btn btn-outline">Back to Project</a>
     <h1 class="timeline-title">Timeline of {{ project_title }}</h1>
-    <a href="{{ url_for('project_detail', project_id=project_id) }}" class="btn-accent" style="margin-top: -5px;margin-left: 5px; display: inline-block;">Back to Project</a>
+    
 
     <div class="timeline-container">
       {% if log_entries %}
