@@ -796,17 +796,18 @@ def send_message(project_id, chat_id):
     # --- Get data from project documents for AI search ---
 
     cur.execute("""
-        SELECT 
-            d.title, 
-            LEFT(d.ocr_text, 1000) AS ocr_text,
-            STRING_AGG(t.label, ',') AS tags
-        FROM Document d
-        LEFT JOIN Document_Tag dt ON d.doc_id = dt.document_id
-        LEFT JOIN Tag t ON dt.tag_id = t.tag_id
-        JOIN Project_Document pd ON d.doc_id = pd.document_id
-        WHERE pd.project_id = ?
-        GROUP BY d.doc_id, d.title, d.ocr_text
-    """, (project_id,))
+    SELECT 
+        d.title, 
+        LEFT(d.ocr_text, 1000) AS ocr_text,
+        STRING_AGG(t.label, ',') AS tags,
+        pd.contextual_summary
+    FROM Document d
+    LEFT JOIN Document_Tag dt ON d.doc_id = dt.document_id
+    LEFT JOIN Tag t ON dt.tag_id = t.tag_id
+    JOIN Project_Document pd ON d.doc_id = pd.document_id
+    WHERE pd.project_id = ?
+    GROUP BY d.doc_id, d.title, d.ocr_text, pd.contextual_summary
+                    """, (project_id,))
     docs = dict_cursor(cur)  # your helper to convert rows to dict
 
 
@@ -815,9 +816,11 @@ def send_message(project_id, chat_id):
         info_parts = []
 
         for d in docs:
+            tags_str = f" [tags: {d['tags']}]" if d['tags'] else ""
+            summary_str = f" Summary: {d['contextual_summary']}" if d['contextual_summary'] else ""
 
-            #info_parts.append(f"Document: {d['title']}{tags_str}\n{d.get('ocr_text','')[:1000]}")
-            info_parts.append(f"Document: {d['title']}")
+            info_parts.append(f"Document: {d['title']}{tags_str}{summary_str}\n Text Raw: {d.get('ocr_text','')[:1000]}")
+            #info_parts.append(f"Document: {d['title']}")
 
         context = "\n\n".join(info_parts)
 
@@ -844,7 +847,7 @@ def send_message(project_id, chat_id):
             response = model.generate_content(prompt)
 
             reply = response.text.strip()
-
+            #reply = str(info_parts)
 
 
 
@@ -912,7 +915,9 @@ def send_message(project_id, chat_id):
                 continue
 
             #lvl2_info_parts.append(f"Document: {d['title']} {d['summary']}")
-            lvl2_info_parts.append(f"Document: {d['title']} test summary dont worry about")
+            summary_str = f" Summary: {d['contextual_summary']}" if d['contextual_summary'] else ""
+
+            lvl2_info_parts.append(f"Document: {d['title']}{summary_str}")
 
         lvl2_context = "\n\n".join(lvl2_info_parts)
 
