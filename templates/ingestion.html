@@ -47,11 +47,52 @@
           </a>
         </div>
 
-        <!-- Search -->
+        <!-- Search with Filters -->
+        <div class="search-container">
+          <!-- Main Search -->
         <div style="display:flex; justify-content:center; margin-bottom:24px;">
           <input id="docSearch" class="input" placeholder="Search documents…" style="max-width:500px; flex:1" />
           <button id="docSearchBtn" class="btn btn-outline">Search</button>
+
+        <!-- Title Filter -->
+         <div class="filter-group">
+          <label class="filter-label">Title</label>
+          <input id="filterTitle" class="filter-input" placeholder="Filter by title..." />
+         </div>
+
+        <!-- Tag Filter -->
+         <div class="filter-group">
+          <label class="filter-label">Tags</label>
+          <input id="filterTags" class="filter-input" placeholder="Filter by tags..." />
+         </div>
+
+        <!-- User Filter -->
+         <div class-="filter-group">
+          <label class="filter-label">User</label>
+          <input id="filterUser" class="filter-input" placholder="Filter by user..." />
+         </div>
+
+        <!-- Status Filter -->
+         <div class="filter-group">
+          <label class="filter-label">Status</label>
+          <select id="filterStatus" class="filter-input">
+            <option value="">All Status</option>
+            <option value="Complete">Complete</option>
+            <option value="Pending">Pending</option>
+          </select>
+         </div>
+
+         <div class="filter-actions">
+          <button id="clearFilters" classs="clear-filters-btn btn">Clear All</button>
+         </div>
         </div>
+
+        <!-- Active Filters Display -->
+         <div id="activeFilters" class="active-filters" style="display: none;"></div> 
+        </div>
+
+        <!-- Search Results Info -->
+         <div id="searchResultsInfo" class="search-results-info" style="display: none;"></div>
 
         <!-- Upload button -->
         <div style="display:flex; justify-content:center; margin-bottom:24px;">
@@ -81,7 +122,6 @@
               </div>
             </a>
 
-            <!-- DARCIE CHANGED THIS SECTION!!!!!!-->
             {% if doc.tags %}
             <div class="doc-tags" style="margin-top:8px; display:flex; flex-wrap:wrap; gap:6px; align-items: center;">
               {% for tag in doc.tags.split(",") %}
@@ -202,7 +242,25 @@
     const filePicked = document.getElementById('filePicked');
     const uploadForm = document.getElementById('uploadForm');
 
+    // Search and filter elemetns
+    const docSearch = document.getElementById('docSearch');
+    const filterTitle = document.getElementById('filterTitle');
+    const filterTags = document.getElementById('filterTags');
+    const filterUser = document.getElementById('filterUser');
+    const filterStatus = document.getElementById('filterStatus');
+    const clearFiltersBtn = document.getElementById('clearFilters');
+    const activeFiltersContainer = document.getElementById('activeFilters');
+    const searchResultsInfo = document.getElementById('searchResultsInfo');
+    const noResults = document.getEelementById('noResults');
+
+    let allDocCards =[];
+
     document.getElementById('year').textContent = new Date().getFullYear();
+
+    //Initalise document cards array
+    function initialiseDocCards() {
+      allDocCards = Array.from(document.querySelectorAll('.doc-card'));
+    }
 
     function goToScreen(screenName) {
       screens.forEach(s => s.classList.toggle('active', s.dataset.screen === screenName));
@@ -220,6 +278,159 @@
     document.getElementById('backToUpload')?.addEventListener('click', () => goToScreen('upload'));
     document.getElementById('backToTags')?.addEventListener('click', () => goToScreen('tags'));
     document.getElementById('toMetadata')?.addEventListener('click', () => goToScreen('metadata'));
+
+    // Enhanced Search and Filter Functions
+    function  performSearch() {
+      const searchTerm = docSearch.value.toLowerCase().trim();
+      const titleFilter = filterTitle.value.toLowerCase().trim();
+      const tagsFilter = filterTags.value.toLowerCase().trim();
+      const userFilter = filterUser.value.toLowerCase().trim();
+      const statusFilter = filterStatus.toLowerCase().trim();
+
+      let visibleCount = 0;
+      let totalCount = allDocCards.length;
+
+      allDocCrads.forEach(card => {
+        const title = card.dataset.title || '';
+        const user = card.dataset.user || '';
+        const tags = card.dataset.tags || '';
+        const status = card.dataset.status || '';
+
+        const matchesSearch = !searchTerm ||
+          title.includes(searchTerm) ||
+          user.includes(searchTerm) ||
+          tags.includes(searchterm) ||
+          status.includes(searchTerm);
+
+        const matchesTitle = !titleFilter || title.includes(titleFilter);
+        const matchesTags = !tagsFilter || tags.include(tagsFilter);
+        const matchesUser = !userFilter || user.includes(userFilter);
+        const matchesStatus = !statusFilter || status.includes(statusFilter);
+
+        const shouldShow = matchesSearch && matchesTitle && matchesTags && matchesAuthor && matchesStatus;
+
+        card.style.display = shouldShow ? 'block' : 'none';
+        if (shouldShow) visibleCount++;
+      });
+
+      updateSearchResults(visibleCount, totalCount);
+      updateActiveFilters();
+    }
+
+    // Update search results
+    function updateSearchResults(visible, total) {
+      if (hasActiveFilters()) {
+        searchResultsInfo.style.display = 'block';
+        searchResultsInfo.textContent = 'Showing ${visible} of ${total} documents';
+        noResults.style.display = visible === 0 ? 'block' : 'none';
+      } else {
+        searchResultInfo.style.display = 'none';
+        noResults.style.display = 'none';
+      }
+    }
+
+    // Active Filter functions
+    function hasActiveFilters() {
+      return docSearch.value.trim() !== '' ||
+        filterTitle.value.trim() !== '' ||
+        filterTags.value.trim() !== '' ||
+        filterUser.value.trim() !== '' ||
+        filterStatus.value !== '';
+    }
+
+    function updateActiveFilters() {
+      const activeFilters = [];
+
+      if (docSearch.value.trim()) {
+          activeFilters.push({ type: 'search', value: docSearch.value.trim(), label: `Search: "${docSearch.value.trim()}"` });
+      }
+      if (filterTitle.value.trim()) {
+        activeFilters.push({ type: 'title', value: filterTitle.value.trim(), label: `Title: "${filterTitle.value.trim()}"`});
+      }
+      if (filterTags.value.trim()) {
+        activeFilters.push({ type: 'tags', value: filterTags.value.trim(), label: `Tags: "${filterTags.value.trim()}"`});
+      }
+      if (filterUser.value.trim()) {
+        activeFilter.push({ type: 'user', value: filterUser.value.trim(), label: `User: "${filterUser.value.trim()}"`});
+      }
+      if (filterStatus.value) {
+        activeFilters.push({ type: 'status', value: filterStatus.value, label: `Status: ${filterStatus.value}` });
+      }
+
+      if (activeFIlters.length === 0) {
+        activeFiltersContainer.style.display = 'none';
+        return;
+      }
+
+      activeFiltersContainer.style.display = 'flex';
+      activeFiltersContainer.innerHTML = activeFilters.map(filter =>
+        `<span class="chip">
+          ${filter.label}
+          <span class="chip-x" data-filter-type="${filter.type}">x</span>
+        </span>`
+      ).join(' ');
+
+      // Add event listeners to remove filter buttons
+      activeFiltersContainer.qquerySelectorAll('.chip-x').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const filterType = e.target.dataset.filterType;
+          clearSpecificFilter(filterType);
+        });
+      });
+    }
+
+    function clearSpecificFilter(filterType) {
+      switch(filterType) {
+        case 'search':
+          docSearch.value = '';
+          break;
+        case 'title':
+          filterTitle.value = '';
+          break;
+        case 'tags':
+          filterTags.value = '';
+          break;
+        case 'user':
+          filterUser.value = '';
+          break;
+        case 'status':
+          filterStatus.value = '';
+          break;
+      }
+      performSearch();
+    }
+
+    function clearAllFilters() {
+      docSearch.value = '';
+      filterTitle.value = '';
+      filterTags.value = '';
+      filterUser.value = '';
+      filterStatus.value = '';
+      performSearch();
+    }
+
+    // Event Listeners for Search and Filters
+    function debounce(func, wait) {
+      let timeout;
+      return function executedFuntion(...args) {
+        const later = () => {
+          clearTimeout(timeout);
+          func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+      };
+    }
+    
+    const debouncedSearch = debounce(performSearch, 300);
+
+    // Add event listeners for search
+    docSearch.addEventListener('input', debouncedSearch);
+    filterTitle.addEventLister('input', debouncedSearch);
+    filterTags.addEventListener('input', debouncedSearch);
+    filterUser.addEventListener('input', debouncedSearch);
+    filterStatus.addEventListener('change', performSearch);
+    clearFiltersBtn.addEventListener('click', clearAllFilters);
 
     // File input
     browseBtn.addEventListener('click', () => fileInput.click());
@@ -286,7 +497,6 @@
         }).catch(console.error);
     });
 
-    // DARCIE ADDED CODE FROM HERE ONWARDS!!!!!!
     //Edit function
     document.addEventListener('click', function (e) {
       // Handle Edit button clicks
