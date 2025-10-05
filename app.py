@@ -1043,7 +1043,10 @@ def delete_document_tag(project_id, doc_id):
     if "user_id" not in session:
         return jsonify({"success": False, "error": "Unauthorized"}), 401
 
+<<<<<<< HEAD
     user_id = session["user_id"]
+=======
+>>>>>>> b8282efe696540654bc95233a96c60474dd6e228
     data = request.get_json()
     if not data or "tag" not in data:
         return jsonify({"success": False, "error": "Tag parameter required"}), 400
@@ -1056,7 +1059,11 @@ def delete_document_tag(project_id, doc_id):
     cur = conn.cursor()
 
     try:
+<<<<<<< HEAD
         # Verify the document exists and belongs to the project
+=======
+        # First, verify the document exists and belongs to the project
+>>>>>>> b8282efe696540654bc95233a96c60474dd6e228
         cur.execute("""
             SELECT d.doc_id
             FROM Document d
@@ -1089,6 +1096,7 @@ def delete_document_tag(project_id, doc_id):
 
         conn.commit()
 
+<<<<<<< HEAD
         # Log the tag deletion
         log_event(
             user_id=user_id,
@@ -1099,6 +1107,8 @@ def delete_document_tag(project_id, doc_id):
             object_name=tag_label
         )
 
+=======
+>>>>>>> b8282efe696540654bc95233a96c60474dd6e228
         return jsonify({
             "success": True,
             "message": f"Tag '{tag_label}' removed successfully"
@@ -1165,6 +1175,7 @@ def add_document_tag(project_id, doc_id):
 
         conn.commit()
 
+<<<<<<< HEAD
         # Log the event
         log_event(
             user_id=session["user_id"],
@@ -1175,6 +1186,8 @@ def add_document_tag(project_id, doc_id):
             object_name=tag_label
         )
 
+=======
+>>>>>>> b8282efe696540654bc95233a96c60474dd6e228
         return jsonify({
             "success": True,
             "message": f"Tag '{tag_label}' added successfully",
@@ -1190,6 +1203,7 @@ def add_document_tag(project_id, doc_id):
         cur.close()
         conn.close()
 
+<<<<<<< HEAD
 import datetime
 
 @app.route("/project/<project_id>/timeline")
@@ -1252,6 +1266,8 @@ def project_timeline(project_id):
 
 
 
+=======
+>>>>>>> b8282efe696540654bc95233a96c60474dd6e228
 # ------------------ Main -----------------
 if __name__ == "__main__":
     app.run(debug=True)

@@ -50,6 +50,7 @@
         <!-- Search with Filters -->
         <div class="search-container">
           <!-- Main Search -->
+<<<<<<< HEAD
         <div class="main-search-row">
           <input id="docSearch" class="input" placeholder="Search documents…" style="flex:1;" />
           <button id="docSearchBtn" class="btn btn-primary">Search</button>
@@ -87,6 +88,47 @@
 
         <!-- Active Filters Display -->
          <div id="activeFilters" class="active-filters" style="display: none;"></div>
+=======
+        <div style="display:flex; justify-content:center; margin-bottom:24px;">
+          <input id="docSearch" class="input" placeholder="Search documents…" style="max-width:500px; flex:1" />
+          <button id="docSearchBtn" class="btn btn-outline">Search</button>
+
+        <!-- Title Filter -->
+         <div class="filter-group">
+          <label class="filter-label">Title</label>
+          <input id="filterTitle" class="filter-input" placeholder="Filter by title..." />
+         </div>
+
+        <!-- Tag Filter -->
+         <div class="filter-group">
+          <label class="filter-label">Tags</label>
+          <input id="filterTags" class="filter-input" placeholder="Filter by tags..." />
+         </div>
+
+        <!-- User Filter -->
+         <div class-="filter-group">
+          <label class="filter-label">User</label>
+          <input id="filterUser" class="filter-input" placholder="Filter by user..." />
+         </div>
+
+        <!-- Status Filter -->
+         <div class="filter-group">
+          <label class="filter-label">Status</label>
+          <select id="filterStatus" class="filter-input">
+            <option value="">All Status</option>
+            <option value="Complete">Complete</option>
+            <option value="Pending">Pending</option>
+          </select>
+         </div>
+
+         <div class="filter-actions">
+          <button id="clearFilters" classs="clear-filters-btn btn">Clear All</button>
+         </div>
+        </div>
+
+        <!-- Active Filters Display -->
+         <div id="activeFilters" class="active-filters" style="display: none;"></div> 
+>>>>>>> b8282efe696540654bc95233a96c60474dd6e228
         </div>
 
         <!-- Search Results Info -->
@@ -100,11 +142,15 @@
         <!-- Document List -->
         <div id="docList">
           {% for doc in documents %}
+<<<<<<< HEAD
           <article class="doc-card" data-doc-id="{{ doc.doc_id }}"
             data-title="{{doc.title|lower }}"
             data-author="{{ (doc.author or 'Unknown')|lower }}"
             data-tags="{{ (doc.tags or '')|lower }}"
             data-status="{{ (doc.status or 'Pending')|lower }}">
+=======
+          <article class="doc-card" data-doc-id="{{ doc.doc_id }}">
+>>>>>>> b8282efe696540654bc95233a96c60474dd6e228
             <a href="{{ url_for('document_detail', project_id=project_id, doc_id=doc.doc_id) }}"
               style="display:block; text-decoration:none; color:inherit;">
               <div class="doc-row">
@@ -263,6 +309,19 @@
     let activeAuthorFilters = new Set();
     let allDocCards =[];
 
+    // Search and filter elemetns
+    const docSearch = document.getElementById('docSearch');
+    const filterTitle = document.getElementById('filterTitle');
+    const filterTags = document.getElementById('filterTags');
+    const filterUser = document.getElementById('filterUser');
+    const filterStatus = document.getElementById('filterStatus');
+    const clearFiltersBtn = document.getElementById('clearFilters');
+    const activeFiltersContainer = document.getElementById('activeFilters');
+    const searchResultsInfo = document.getElementById('searchResultsInfo');
+    const noResults = document.getEelementById('noResults');
+
+    let allDocCards =[];
+
     document.getElementById('year').textContent = new Date().getFullYear();
 
     //Initalise document cards array
@@ -310,14 +369,25 @@
     document.getElementById('backToTags')?.addEventListener('click', () => goToScreen('tags'));
     document.getElementById('toMetadata')?.addEventListener('click', () => goToScreen('metadata'));
 
+<<<<<<< HEAD
         // Enhanced Search and Filter Functions
     function  performSearch() {
       const searchTerm = docSearch.value.toLowerCase().trim();
       const statusFilter = filterStatus.value.toLowerCase().trim();
+=======
+    // Enhanced Search and Filter Functions
+    function  performSearch() {
+      const searchTerm = docSearch.value.toLowerCase().trim();
+      const titleFilter = filterTitle.value.toLowerCase().trim();
+      const tagsFilter = filterTags.value.toLowerCase().trim();
+      const userFilter = filterUser.value.toLowerCase().trim();
+      const statusFilter = filterStatus.toLowerCase().trim();
+>>>>>>> b8282efe696540654bc95233a96c60474dd6e228
 
       let visibleCount = 0;
       let totalCount = allDocCards.length;
 
+<<<<<<< HEAD
       allDocCards.forEach(card => {
         const title = card.dataset.title || '';
         const author = card.dataset.author || '';
@@ -340,6 +410,26 @@
         const matchesStatus = !statusFilter || status.includes(statusFilter);
 
         const shouldShow = matchesSearch && matchesTags && matchesAuthor && matchesStatus;
+=======
+      allDocCrads.forEach(card => {
+        const title = card.dataset.title || '';
+        const user = card.dataset.user || '';
+        const tags = card.dataset.tags || '';
+        const status = card.dataset.status || '';
+
+        const matchesSearch = !searchTerm ||
+          title.includes(searchTerm) ||
+          user.includes(searchTerm) ||
+          tags.includes(searchterm) ||
+          status.includes(searchTerm);
+
+        const matchesTitle = !titleFilter || title.includes(titleFilter);
+        const matchesTags = !tagsFilter || tags.include(tagsFilter);
+        const matchesUser = !userFilter || user.includes(userFilter);
+        const matchesStatus = !statusFilter || status.includes(statusFilter);
+
+        const shouldShow = matchesSearch && matchesTitle && matchesTags && matchesAuthor && matchesStatus;
+>>>>>>> b8282efe696540654bc95233a96c60474dd6e228
 
         card.style.display = shouldShow ? 'block' : 'none';
         if (shouldShow) visibleCount++;
@@ -353,6 +443,7 @@
     function updateSearchResults(visible, total) {
       if (hasActiveFilters()) {
         searchResultsInfo.style.display = 'block';
+<<<<<<< HEAD
         searchResultsInfo.textContent = `Showing ${visible} of ${total} documents`;
         if (noResults) {
           noResults.style.display = visible === 0 ? 'block' : 'none';
@@ -362,14 +453,27 @@
         if (noResults) {
           noResults.style.display = 'none';
         }
+=======
+        searchResultsInfo.textContent = 'Showing ${visible} of ${total} documents';
+        noResults.style.display = visible === 0 ? 'block' : 'none';
+      } else {
+        searchResultInfo.style.display = 'none';
+        noResults.style.display = 'none';
+>>>>>>> b8282efe696540654bc95233a96c60474dd6e228
       }
     }
 
     // Active Filter functions
     function hasActiveFilters() {
       return docSearch.value.trim() !== '' ||
+<<<<<<< HEAD
         activeTagFilters.size > 0 ||
         activeAuthorFilters.size > 0 ||
+=======
+        filterTitle.value.trim() !== '' ||
+        filterTags.value.trim() !== '' ||
+        filterUser.value.trim() !== '' ||
+>>>>>>> b8282efe696540654bc95233a96c60474dd6e228
         filterStatus.value !== '';
     }
 
@@ -379,6 +483,7 @@
       if (docSearch.value.trim()) {
           activeFilters.push({ type: 'search', value: docSearch.value.trim(), label: `Search: "${docSearch.value.trim()}"` });
       }
+<<<<<<< HEAD
       // Add each tag filter
       activeTagFilters.forEach(tag => {
         activeFilters.push({ type: 'tag', value: tag, label: `Tag: "${tag}"` });
@@ -387,11 +492,26 @@
       activeAuthorFilters.forEach(author => {
         activeFilters.push({ type: 'author', value: author, label: `Author: "${author}"` });
       });
+=======
+      if (filterTitle.value.trim()) {
+        activeFilters.push({ type: 'title', value: filterTitle.value.trim(), label: `Title: "${filterTitle.value.trim()}"`});
+      }
+      if (filterTags.value.trim()) {
+        activeFilters.push({ type: 'tags', value: filterTags.value.trim(), label: `Tags: "${filterTags.value.trim()}"`});
+      }
+      if (filterUser.value.trim()) {
+        activeFilter.push({ type: 'user', value: filterUser.value.trim(), label: `User: "${filterUser.value.trim()}"`});
+      }
+>>>>>>> b8282efe696540654bc95233a96c60474dd6e228
       if (filterStatus.value) {
         activeFilters.push({ type: 'status', value: filterStatus.value, label: `Status: ${filterStatus.value}` });
       }
 
+<<<<<<< HEAD
       if (activeFilters.length === 0) {
+=======
+      if (activeFIlters.length === 0) {
+>>>>>>> b8282efe696540654bc95233a96c60474dd6e228
         activeFiltersContainer.style.display = 'none';
         return;
       }
@@ -400,30 +520,56 @@
       activeFiltersContainer.innerHTML = activeFilters.map(filter =>
         `<span class="chip">
           ${filter.label}
+<<<<<<< HEAD
           <span class="chip-x" data-filter-type="${filter.type}" data-filter-value="${filter.value}">X</span>
+=======
+          <span class="chip-x" data-filter-type="${filter.type}">x</span>
+>>>>>>> b8282efe696540654bc95233a96c60474dd6e228
         </span>`
       ).join(' ');
 
       // Add event listeners to remove filter buttons
+<<<<<<< HEAD
       activeFiltersContainer.querySelectorAll('.chip-x').forEach(btn => {
         btn.addEventListener('click', (e) => {
           const filterType = e.target.dataset.filterType;
           const filterValue = e.target.dataset.filterValue;
           clearSpecificFilter(filterType, filterValue);
+=======
+      activeFiltersContainer.qquerySelectorAll('.chip-x').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const filterType = e.target.dataset.filterType;
+          clearSpecificFilter(filterType);
+>>>>>>> b8282efe696540654bc95233a96c60474dd6e228
         });
       });
     }
 
+<<<<<<< HEAD
     function clearSpecificFilter(filterType, filterValue) {
+=======
+    function clearSpecificFilter(filterType) {
+>>>>>>> b8282efe696540654bc95233a96c60474dd6e228
       switch(filterType) {
         case 'search':
           docSearch.value = '';
           break;
+<<<<<<< HEAD
         case 'tag':
           activeTagFilters.delete(filterValue);
           break;
         case 'author':
           activeAuthorFilters.delete(filterValue);
+=======
+        case 'title':
+          filterTitle.value = '';
+          break;
+        case 'tags':
+          filterTags.value = '';
+          break;
+        case 'user':
+          filterUser.value = '';
+>>>>>>> b8282efe696540654bc95233a96c60474dd6e228
           break;
         case 'status':
           filterStatus.value = '';
@@ -434,10 +580,16 @@
 
     function clearAllFilters() {
       docSearch.value = '';
+<<<<<<< HEAD
       activeTagFilters.clear();
       activeAuthorFilters.clear();
       filterTags.value = '';
       filterAuthor.value = '';
+=======
+      filterTitle.value = '';
+      filterTags.value = '';
+      filterUser.value = '';
+>>>>>>> b8282efe696540654bc95233a96c60474dd6e228
       filterStatus.value = '';
       performSearch();
     }
@@ -454,11 +606,16 @@
         timeout = setTimeout(later, wait);
       };
     }
+<<<<<<< HEAD
 
+=======
+    
+>>>>>>> b8282efe696540654bc95233a96c60474dd6e228
     const debouncedSearch = debounce(performSearch, 300);
 
     // Add event listeners for search
     docSearch.addEventListener('input', debouncedSearch);
+<<<<<<< HEAD
     // Handle tag filter with Enter key
     filterTags.addEventListener('keypress', (e) => {
       if (e.key === 'Enter') {
@@ -481,6 +638,11 @@
         }
       }
     });
+=======
+    filterTitle.addEventLister('input', debouncedSearch);
+    filterTags.addEventListener('input', debouncedSearch);
+    filterUser.addEventListener('input', debouncedSearch);
+>>>>>>> b8282efe696540654bc95233a96c60474dd6e228
     filterStatus.addEventListener('change', performSearch);
     clearFiltersBtn.addEventListener('click', clearAllFilters);
 
@@ -488,7 +650,10 @@
     browseBtn.addEventListener('click', () => fileInput.click());
     fileInput.addEventListener('change', () => {
       if (fileInput.files.length > 0) {
+<<<<<<< HEAD
         handleFiles(fileInput.files);
+=======
+>>>>>>> b8282efe696540654bc95233a96c60474dd6e228
         filePicked.hidden = false;
         filePicked.textContent = `Selected file: ${fileInput.files[0].name}`;
       } else { filePicked.hidden = true; }
@@ -526,7 +691,11 @@
 
       fetch(`/project/${PROJECT_ID}/upload`, { method: 'POST', body: formData })
         .then(res => res.json())
+<<<<<<< HEAD
         .then (data => {
+=======
+        .then(data => {
+>>>>>>> b8282efe696540654bc95233a96c60474dd6e228
           if (data.success) {
             const article = document.createElement('article');
             article.className = 'doc-card';
@@ -860,6 +1029,7 @@
       }
     }
 
+<<<<<<< HEAD
     function validateFile(file) {
       if (!file) return { ok: false, reason: 'No file selected' };
       const extOk = /\.(pdf|doc|docx|xls|xlsx|jpg|jpeg|png|tiff)$/i.test(file.name);
@@ -911,6 +1081,8 @@
 
     //Initialise document cards on page load
     initialiseDocCards();
+=======
+>>>>>>> b8282efe696540654bc95233a96c60474dd6e228
   </script>
 </body>
 
