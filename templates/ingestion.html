@@ -204,6 +204,7 @@
     const filePicked = document.getElementById('filePicked');
     const uploadForm = document.getElementById('uploadForm');
     const dropzone = document.getElementById('dropzone');
+    const docTitle = document.getElementById('docTitle');
     
 
     document.getElementById('year').textContent = new Date().getFullYear();
@@ -218,6 +219,29 @@
       });
     }
 
+    //functions for when ingesting a file auto inputs the filename as the document title field
+
+    
+    function filenameToTitle(name) {
+      const noPath = name.split('\\').pop().split('/').pop();
+      const withoutExt = noPath.replace(/\.[^/.]+$/, '');
+    return withoutExt.replace(/[_-]+/g, ' ').trim();
+    }
+
+    function handleFiles(files) {
+      if (!files || files.length === 0) {
+        return;
+      }
+      const file = files[0];
+      const displayName = file.name;
+      filePicked.hidden = false;
+      filePicked.textContent = displayName;
+
+  if (!docTitle.value || docTitle.value.trim() === '') {
+    docTitle.value = filenameToTitle(displayName);
+  }
+}
+
     // Navigation
     document.getElementById('btnGoUpload').addEventListener('click', () => goToScreen('upload'));
     document.getElementById('backToDashboard').addEventListener('click', () => goToScreen('dashboard'));
@@ -229,6 +253,7 @@
     browseBtn.addEventListener('click', () => fileInput.click());
     fileInput.addEventListener('change', () => {
       if (fileInput.files.length > 0) {
+        handleFiles(fileInput.files);
         filePicked.hidden = false;
         filePicked.textContent = `Selected file: ${fileInput.files[0].name}`;
       } else { filePicked.hidden = true; }
@@ -647,6 +672,7 @@
       dt.items.add(f);
       fileInput.files = dt.files;
       setPicked(f);
+      handleFiles(fileInput.files);
     });
   </script>
 </body>
